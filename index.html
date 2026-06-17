@@ -769,6 +769,9 @@
         let syncTimer = null;
         let audioCtx = null;
         let deletedClassIds = [];
+        const VOCAB_CLOUD_CLASS_ID = '__cloud_vocabulary__';
+        const VOCAB_CLOUD_KIND = 'vocabulary_data';
+        const VOCAB_LOCAL_KEYS = { dictation: 'dictation_vocab', matchgame: 'matchgame_vocab' };
 
         function getAudioCtx() { if (!audioCtx) audioCtx = new(window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
         function playSound(t) { try { let c=getAudioCtx(); if(c.state==='suspended') c.resume(); let o=c.createOscillator(), g=c.createGain(); o.connect(g); g.connect(c.destination); let n=c.currentTime; if(t==='add'){ o.type='sine'; o.frequency.setValueAtTime(600,n); o.frequency.exponentialRampToValueAtTime(1200,n+0.1); g.gain.setValueAtTime(0.5,n); g.gain.exponentialRampToValueAtTime(0.01,n+0.3); o.start(n); o.stop(n+0.3); } else if(t==='sub'){ o.type='sawtooth'; o.frequency.setValueAtTime(300,n); o.frequency.exponentialRampToValueAtTime(150,n+0.2); g.gain.setValueAtTime(0.4,n); g.gain.exponentialRampToValueAtTime(0.01,n+0.3); o.start(n); o.stop(n+0.3); } else if(t==='new'){ o.type='square'; o.frequency.setValueAtTime(400,n); o.frequency.setValueAtTime(800,n+0.1); g.gain.setValueAtTime(0.2,n); g.gain.exponentialRampToValueAtTime(0.01,n+0.2); o.start(n); o.stop(n+0.2); } } catch(e){} }
@@ -803,6 +806,71 @@
         function getCurrentClass(){ return allClasses[currentClassId]||{name:'未命名',students:[],logs:[]}; }
         function getStudents(){ return getCurrentClass().students; }
         function getLogs(){ return getCurrentClass().logs; }
+        function readLocalVocabulary(kind) {
+            const key = VOCAB_LOCAL_KEYS[kind];
+            if (!key) return null;
+            try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) { return null; }
+        }
+        function writeLocalVocabulary(kind, data) {
+            const key = VOCAB_LOCAL_KEYS[kind];
+            if (!key) return false;
+            try {
+                if (data == null) localStorage.removeItem(key);
+                else localStorage.setItem(key, JSON.stringify(data));
+                return true;
+            } catch(e) { return false; }
+        }
+        function extractVocabularyPayload(row) {
+            if (!row) return null;
+            const logs = row.logs;
+            if (Array.isArray(logs)) return logs.find(item => item && item.kind === VOCAB_CLOUD_KIND) || null;
+            if (logs && typeof logs === 'object') return logs.payload || logs;
+            const students = row.students;
+            if (students && typeof students === 'object' && !Array.isArray(students)) return students.payload || students;
+            return null;
+        }
+        function applyVocabularyPayload(payload) {
+            if (!payload || typeof payload !== 'object') return false;
+            if (Object.prototype.hasOwnProperty.call(payload, 'dictation_vocab')) writeLocalVocabulary('dictation', payload.dictation_vocab);
+            if (Object.prototype.hasOwnProperty.call(payload, 'matchgame_vocab')) writeLocalVocabulary('matchgame', payload.matchgame_vocab);
+            return true;
+        }
+        function buildVocabularyPayload() {
+            return {
+                kind: VOCAB_CLOUD_KIND,
+                version: 1,
+                dictation_vocab: readLocalVocabulary('dictation'),
+                matchgame_vocab: readLocalVocabulary('matchgame'),
+                updated_at: new Date().toISOString()
+            };
+        }
+        async function syncVocabularyToCloud() {
+            if (!supabaseClient || !isCloudMode || !cloudUser) return false;
+            try {
+                updateSyncStatus('pending');
+                const payload = buildVocabularyPayload();
+                const { error } = await supabaseClient.from('class_data').upsert({
+                    user_id: cloudUser.id,
+                    class_id: VOCAB_CLOUD_CLASS_ID,
+                    class_name: '__vocabulary__',
+                    students: [],
+                    logs: [payload],
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id,class_id' });
+                if (error) throw error;
+                updateSyncStatus('ok');
+                return true;
+            } catch(e) {
+                console.warn('Vocabulary cloud sync failed:', e);
+                updateSyncStatus('error');
+                return false;
+            }
+        }
+        function saveVocabularyData(kind, data) {
+            const ok = writeLocalVocabulary(kind, data);
+            if (ok && isCloudMode && cloudUser && supabaseClient) syncVocabularyToCloud();
+            return ok;
+        }
         async function syncCurrentClassToCloud() {
             if(!supabaseClient||!isCloudMode||!cloudUser) return;
             try { updateSyncStatus('pending'); let cls=getCurrentClass();
@@ -891,11 +959,12 @@
             if(!supabaseClient||!isCloudMode||!cloudUser) return;
             try{ updateSyncStatus('pending'); let {data,error}=await supabaseClient.from('class_data').select('*').eq('user_id',cloudUser.id);
                 if(error){ updateSyncStatus('error'); return; }
-                loadDeletedClassIds(); allClasses = {};
-                if(data&&data.length){ data.forEach(r=>{ if (deletedClassIds.includes(r.class_id)) { deleteClassFromCloud(r.class_id); return; } allClasses[r.class_id]={name:r.class_name,students:r.students||[],logs:r.logs||[]}; }); }
+                loadDeletedClassIds(); allClasses = {}; let foundVocabulary = false;
+                if(data&&data.length){ data.forEach(r=>{ if (r.class_id === VOCAB_CLOUD_CLASS_ID) { foundVocabulary = true; applyVocabularyPayload(extractVocabularyPayload(r)); return; } if (deletedClassIds.includes(r.class_id)) { deleteClassFromCloud(r.class_id); return; } allClasses[r.class_id]={name:r.class_name,students:r.students||[],logs:r.logs||[]}; }); }
                 if (Object.keys(allClasses).length === 0) { let id = 'class_' + Date.now(); allClasses[id] = { name: '默认班级', students: [], logs: [] }; }
                 if (!allClasses[currentClassId]) currentClassId = Object.keys(allClasses)[0];
                 localStorage.setItem('englishAllClasses', JSON.stringify(allClasses)); localStorage.setItem('englishCurrentClassId', currentClassId);
+                if(!foundVocabulary && (readLocalVocabulary('dictation') || readLocalVocabulary('matchgame'))) syncVocabularyToCloud();
                 updateSyncStatus('ok');
             }catch(e){ updateSyncStatus('error'); }
         }
@@ -991,8 +1060,8 @@
                 saveAllClasses();
                 return true;
             },
-            getVocabulary: () => { try { return JSON.parse(localStorage.getItem('dictation_vocab')||'null'); } catch(e) { return null; } },
-            saveVocabulary: (data) => { try { localStorage.setItem('dictation_vocab', JSON.stringify(data)); } catch(e) {} }
+            getVocabulary: () => readLocalVocabulary('dictation'),
+            saveVocabulary: (data) => saveVocabularyData('dictation', data)
         };
 
         window.matchGameAPI = {
@@ -1007,8 +1076,8 @@
                 updateScore(studentId, val);
                 return true;
             },
-            getVocabulary: () => { try { return JSON.parse(localStorage.getItem('matchgame_vocab')||'null'); } catch(e) { return null; } },
-            saveVocabulary: (data) => { try { localStorage.setItem('matchgame_vocab', JSON.stringify(data)); } catch(e) {} }
+            getVocabulary: () => readLocalVocabulary('matchgame'),
+            saveVocabulary: (data) => saveVocabularyData('matchgame', data)
         };
 
         function closeModal(id) {
