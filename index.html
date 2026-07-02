@@ -36,7 +36,8 @@
             { id:'listen-choice', group:'英语练习', name:'听音选词', icon:'🎧', color:'var(--btn-blue)', action:'openListenChoiceModal' },
             { id:'match', group:'英语练习', name:'翻牌配对', icon:'📖', color:'var(--btn-cyan)', action:'openMatchGameModal' },
             { id:'ket-verb', group:'英语练习', name:'动词消消乐', icon:'⚡', color:'var(--btn-purple)', action:'openKetVerbModal' },
-            { id:'tense-rescue', group:'英语练习', name:'时态闯关', icon:'🕐', color:'var(--btn-pink)', action:'openTenseModal' }
+            { id:'tense-rescue', group:'英语练习', name:'一般现在时闯关', icon:'🕐', color:'var(--btn-pink)', action:'openTenseModal' },
+            { id:'pc-rescue', group:'英语练习', name:'现在进行时闯关', icon:'🚀', color:'var(--btn-green)', action:'openPcModal' }
         ];
 
         function getPinnedGameIds(){
@@ -397,7 +398,7 @@
         function openClassModal(){ renderClassList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
-        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); }catch(e){} }
+        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); }catch(e){} }
         function renameClass(id){ let cls=allClasses[id]; let name=prompt('新名称',cls.name); if(name&&name.trim()){ cls.name=name.trim(); saveAllClasses(); updateClassTitle(); renderClassList(); } }
         async function deleteClass(id){ const cls = allClasses[id]; if(!cls) return; if(!confirm(`⚠ 确定要删除班级「${cls.name}」吗？\n班级内 ${cls.students.length} 名学生数据将全部删除，不可恢复！`)) return; if (currentClassId === id) { const otherIds = Object.keys(allClasses).filter(k => k !== id); if (otherIds.length > 0) { currentClassId = otherIds[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } } delete allClasses[id]; historyStack = []; saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); if (isCloudMode) { markClassAsDeleted(id); try { await deleteClassFromCloud(id); clearDeleteMark(id); updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); } } }
         
@@ -554,6 +555,27 @@
                 window.tenseAPI.addTenseWrongItems(msg.studentId, msg.level, msg.items);
                 return;
             }
+            if (msg.type === 'pctense:requestData') {
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'pctense:data', payload: getPcTenseBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'pctense:switchClass') {
+                switchClass(msg.classId);
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'pctense:data', payload: getPcTenseBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'pctense:addScore') {
+                window.pcTenseAPI.addPcTenseScore(msg.studentId, msg.score);
+                return;
+            }
+            if (msg.type === 'pctense:addWrongItems') {
+                window.pcTenseAPI.addPcTenseWrongItems(msg.studentId, msg.level, msg.items);
+                return;
+            }
         });
 
         window.matchGameAPI = {
@@ -618,7 +640,7 @@
                 const t = new Date();
                 const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
                 const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
-                const cat = '时态闯关错题' + (level ? ('·' + level) : '');
+                const cat = '一般现在时闯关错题' + (level ? ('·' + level) : '');
                 getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
                 while (getLogs().length > 200) getLogs().pop();
                 saveAllClasses();
@@ -632,6 +654,43 @@
                 classes: window.tenseAPI.getClasses(),
                 currentClassId: window.tenseAPI.getCurrentClassId(),
                 students: window.tenseAPI.getStudents()
+            };
+        }
+
+        window.pcTenseAPI = {
+            getClasses: () => Object.keys(allClasses).map(id => ({ id, name: allClasses[id]?.name || '未命名' })),
+            getCurrentClassId: () => currentClassId,
+            getStudents: () => getStudents().map(s => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score })),
+            switchClass: (id) => switchClass(id),
+            addPcTenseScore: (studentId, score) => {
+                const val = parseInt(score, 10);
+                if (!studentId || !Number.isFinite(val) || val === 0) return false;
+                selectCategoryButton('互动');
+                updateScore(studentId, val);
+                return true;
+            },
+            addPcTenseWrongItems: (studentId, level, items) => {
+                const list = Array.isArray(items) ? items.map(w => String(w || '').trim()).filter(Boolean) : [];
+                if (!studentId || list.length === 0) return false;
+                const s = getStudents().find(st => st.id === studentId);
+                if (!s) return false;
+                const t = new Date();
+                const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+                const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+                const cat = '现在进行时闯关错题' + (level ? ('·' + level) : '');
+                getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
+                while (getLogs().length > 200) getLogs().pop();
+                saveAllClasses();
+                saveData();
+                return true;
+            }
+        };
+
+        function getPcTenseBridgeData() {
+            return {
+                classes: window.pcTenseAPI.getClasses(),
+                currentClassId: window.pcTenseAPI.getCurrentClassId(),
+                students: window.pcTenseAPI.getStudents()
             };
         }
 
@@ -1826,7 +1885,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>时态闯关</title>
+<title>一般现在时闯关</title>
 <style>
 /* =========================================================
    设计令牌 (Design Tokens) —— 马卡龙配色
@@ -2134,7 +2193,7 @@ header .sub{color:var(--ink-soft); font-size:15px; margin-top:6px;}
 </head>
 <body>
 <header>
-  <h1>时态闯关</h1>
+  <h1>一般现在时闯关</h1>
   <div class="sub">三单 · be 动词 · do / does · 动词加 s · 改错 —— 四关基础补救训练</div>
   <div class="bridge-bar" id="bridgeBar">
     <div class="bridge-field">
@@ -2618,7 +2677,7 @@ function submitResultToParent(){
   const sid = _bridge.selectedStudentId;
   if(!sid) return;
   const g = state.game;
-  const levelName = g ? g.name : '时态闯关';
+  const levelName = g ? g.name : '一般现在时闯关';
   // 1) 提交得分（计入“互动”）
   if(state.score > 0){
     window.parent.postMessage({ type:'tense:addScore', studentId:sid, score:state.score, level:levelName }, '*');
@@ -2966,6 +3025,1538 @@ renderHome();
 `;
 
 
+        // 现在进行时闯关 HTML（内嵌）
+        window._pcHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Present Continuous Rescue 现在进行时闯关</title>
+<style>
+/* ============================================================
+   全局与配色（马卡龙风格）
+   ============================================================ */
+:root{
+  --pink:#ffc7d9;      --pink-d:#ff8fb0;
+  --mint:#b8f0d8;      --mint-d:#5fd6a6;
+  --yellow:#ffe6a0;    --yellow-d:#ffcf4d;
+  --blue:#bfe3ff;      --blue-d:#6cc0ff;
+  --purple:#e2d1ff;    --purple-d:#b18cff;
+  --cream:#fff8ee;
+  --ink:#4a4458;       --ink-soft:#7a7290;
+  --ok:#4fce8b;        --ng:#ff7a7a;
+  --shadow:0 8px 0 rgba(0,0,0,.08), 0 12px 24px rgba(0,0,0,.10);
+  --radius:26px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:"Baloo 2","Comic Sans MS","PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  color:var(--ink);
+  background:linear-gradient(135deg,#fef0f6 0%,#eaf7ff 45%,#eafaf1 100%);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.app{max-width:1200px;margin:0 auto;padding:14px 18px 40px;}
+/* 首页：内容整体垂直居中，消除下方大片留白（游戏页/结果页不受影响） */
+body.home-view .app{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-bottom:60px;}
+/* 首页顶部：标题放大、火箭放大、整体水平居中，开关居中排在标题下方 */
+body.home-view .topbar{flex-direction:column;align-items:center;justify-content:center;gap:34px;margin-bottom:10px;}
+body.home-view .brand{justify-content:center;text-align:center;gap:14px;}
+body.home-view .brand h1{font-size:clamp(42px,8vw,80px);letter-spacing:2px;}
+body.home-view .brand .logo{font-size:clamp(46px,8vw,72px);}
+body.home-view .toolbar{justify-content:center;}
+body.home-view .subtitle{font-size:clamp(16px,2.2vw,22px);margin-top:30px;margin-bottom:26px;}
+
+/* ---------- 桥接选择栏（班级 / 学生）：仅在嵌入积分系统 iframe 时显示 ---------- */
+.bridge-bar{
+  display:none; gap:14px; justify-content:center; align-items:center; flex-wrap:wrap;
+  margin:0 auto 16px; max-width:760px;
+  background:#fff; border:3px solid var(--purple); border-radius:20px; padding:12px 18px;
+  box-shadow:0 4px 0 rgba(0,0,0,.06);
+}
+.bridge-bar.show{ display:flex; }
+body.home-view .bridge-bar.show{ margin-bottom:6px; }
+.bridge-field{ display:inline-flex; align-items:center; gap:8px; }
+.bridge-label{ font-weight:800; color:var(--ink); font-size:15px; }
+.bridge-select{
+  font-family:inherit; font-size:15px; font-weight:700; color:var(--ink);
+  background:var(--cream); border:2px solid var(--purple); border-radius:12px;
+  padding:8px 12px; min-width:140px; max-width:220px; cursor:pointer;
+  -webkit-appearance:menulist;
+}
+.bridge-select:focus{ outline:none; border-color:var(--purple-d); }
+.bridge-hint{ font-size:13.5px; color:var(--ink-soft); font-weight:700; }
+.bridge-hint.ready{ color:var(--ok); font-weight:800; }
+/* 未选学生就点关卡时的醒目警示（不依赖 alert，sandbox 拦截弹窗时也能看到） */
+.bridge-hint.warn-flash{ color:var(--ng); font-weight:800; animation:hintShake .5s ease; }
+@keyframes hintShake{
+  0%,100%{ transform:translateX(0); }
+  20%{ transform:translateX(-6px); } 40%{ transform:translateX(6px); }
+  60%{ transform:translateX(-4px); } 80%{ transform:translateX(4px); }
+}
+@media(max-width:520px){
+  .bridge-bar{ flex-direction:column; align-items:stretch; gap:10px; }
+  .bridge-field{ justify-content:space-between; }
+  .bridge-select{ flex:1; max-width:none; }
+}
+
+/* 顶部标题栏 */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;margin-bottom:14px;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand h1{font-size:clamp(20px,3.4vw,34px);margin:0;line-height:1.1;}
+.brand .en{color:var(--pink-d);}
+.brand .cn{color:var(--purple-d);}
+.brand .logo{font-size:clamp(28px,5vw,44px);}
+
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.toggle{
+  display:flex;align-items:center;gap:8px;background:#fff;border:3px solid var(--purple);
+  padding:8px 14px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer;
+  box-shadow:0 4px 0 rgba(0,0,0,.06);user-select:none;
+}
+.toggle .dot{width:20px;height:20px;border-radius:50%;background:#ddd;transition:.2s;}
+.toggle.on{border-color:var(--mint-d);background:#eafaf1;}
+.toggle.on .dot{background:var(--mint-d);}
+
+/* 通用按钮 */
+.btn{
+  border:none;cursor:pointer;font-family:inherit;font-weight:800;
+  border-radius:var(--radius);padding:16px 26px;font-size:clamp(16px,2vw,22px);
+  color:var(--ink);box-shadow:var(--shadow);transition:transform .08s ease, filter .15s;
+  user-select:none;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 4px 0 rgba(0,0,0,.08);}
+.btn.big{padding:20px 30px;font-size:clamp(20px,2.6vw,28px);}
+.btn-pink{background:var(--pink);}   .btn-pink:hover{filter:brightness(1.03);}
+.btn-mint{background:var(--mint);}
+.btn-yellow{background:var(--yellow);}
+.btn-blue{background:var(--blue);}
+.btn-purple{background:var(--purple);}
+.btn-ghost{background:#fff;border:3px solid var(--purple);}
+
+/* ============================================================
+   首页
+   ============================================================ */
+.subtitle{text-align:center;color:var(--ink-soft);font-size:16px;margin:-2px 0 18px;}
+.cards{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+}
+@media(max-width:960px){.cards{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:560px){.cards{grid-template-columns:1fr;}}
+/* 拼装站选择页：两张卡片加宽居中，说明文字尽量单行 */
+.menu-cards{grid-template-columns:repeat(2,minmax(0,540px));justify-content:center;max-width:1120px;gap:24px;margin:0 auto;}
+.menu-cards .card p{min-height:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:560px){.menu-cards{grid-template-columns:1fr;}.menu-cards .card p{white-space:normal;}}
+.card{
+  background:#fff;border-radius:var(--radius);padding:22px 18px;
+  box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;
+  border:4px solid transparent;transition:transform .12s;
+}
+.card:hover{transform:translateY(-4px);}
+.card .emoji{font-size:46px;text-align:center;}
+.card h3{margin:0;font-size:22px;text-align:center;}
+.card p{margin:0;color:var(--ink-soft);font-size:15px;text-align:center;min-height:44px;line-height:1.35;}
+.card .high{text-align:center;font-size:14px;color:var(--yellow-d);font-weight:800;}
+.card .btn{margin-top:auto;}
+.c1{border-color:var(--pink);}   .c2{border-color:var(--mint);}
+.c3{border-color:var(--blue);}   .c4{border-color:var(--yellow);}
+
+/* ============================================================
+   游戏页
+   ============================================================ */
+.screen{display:none;}
+.screen.active{display:block;animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+.game-hud{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  background:#fff;border-radius:var(--radius);padding:12px 18px;box-shadow:var(--shadow);margin-bottom:16px;
+}
+.hud-left{font-size:clamp(16px,2vw,22px);font-weight:800;}
+.hud-mid{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-weight:800;}
+.pill{background:var(--cream);border-radius:999px;padding:8px 16px;font-size:16px;}
+.pill.score{background:var(--yellow);}
+.pill.qnum{background:var(--blue);}
+.timer-wrap{display:flex;align-items:center;gap:8px;}
+.timer-bar{display:inline-block;width:120px;height:16px;background:#e9e9ef;border-radius:999px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.08);}
+.timer-fill{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--mint),var(--mint-d));border-radius:999px;transition:width .95s linear;}
+.timer-fill.warn{background:linear-gradient(90deg,#ffb3b3,var(--ng));}
+.timer-num{font-weight:800;min-width:26px;text-align:center;}
+
+.stage{
+  background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px;
+  padding:26px 22px;min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  position:relative;overflow:hidden;
+}
+.stage.shake{animation:shake .4s;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-10px);}40%{transform:translateX(10px);}60%{transform:translateX(-7px);}80%{transform:translateX(7px);}}
+.stage.flash-ok::after{content:"";position:absolute;inset:0;background:var(--ok);opacity:.22;animation:flash .5s ease;}
+@keyframes flash{from{opacity:.45;}to{opacity:0;}}
+
+.prompt-cn{font-size:clamp(20px,3vw,30px);color:var(--purple-d);font-weight:800;text-align:center;}
+.prompt-big{font-size:clamp(38px,7vw,72px);font-weight:900;letter-spacing:1px;text-align:center;}
+.prompt-sub{font-size:16px;color:var(--ink-soft);}
+
+.opt-row{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;}
+.opt{
+  min-width:120px;font-size:clamp(22px,3vw,34px);font-weight:900;padding:20px 28px;
+  border-radius:var(--radius);background:var(--blue);border:none;cursor:pointer;box-shadow:var(--shadow);
+  transition:transform .08s;font-family:inherit;color:var(--ink);
+}
+.opt:nth-child(4n+1){background:var(--pink);}
+.opt:nth-child(4n+2){background:var(--mint);}
+.opt:nth-child(4n+3){background:var(--yellow);}
+.opt:nth-child(4n+4){background:var(--purple);}
+.opt:active{transform:translateY(4px);}
+.opt.correct{background:var(--ok)!important;color:#fff;animation:pop .3s;}
+.opt.wrong{background:var(--ng)!important;color:#fff;}
+.opt:disabled{cursor:default;opacity:.9;}
+@keyframes pop{0%{transform:scale(1);}50%{transform:scale(1.12);}100%{transform:scale(1);}}
+
+/* 拼装站 */
+.build-answer{
+  min-height:78px;width:100%;max-width:820px;border:3px dashed var(--purple);border-radius:20px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;padding:12px;background:var(--cream);
+}
+.build-answer .placeholder{color:var(--ink-soft);font-size:16px;}
+.chip{
+  font-size:clamp(18px,2.4vw,26px);font-weight:800;padding:12px 18px;border-radius:16px;border:none;cursor:pointer;
+  background:var(--yellow);box-shadow:0 4px 0 rgba(0,0,0,.08);font-family:inherit;color:var(--ink);transition:transform .08s;
+}
+.chip:active{transform:translateY(3px);}
+.build-pool{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;max-width:900px;}
+.chip.pool{background:var(--blue);}
+.chip.punct{background:var(--pink);font-weight:900;min-width:52px;font-size:clamp(20px,2.6vw,28px);}
+.build-hint{color:var(--ink-soft);font-size:15px;text-align:center;}
+.chip.used{visibility:hidden;}
+.build-controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+
+/* 改错侦探 */
+.fix-sentence{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;}
+.word{
+  font-size:clamp(28px,4vw,44px);font-weight:800;padding:14px 20px;border-radius:14px;border:3px solid transparent;
+  background:var(--cream);cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .08s;
+}
+.word:active{transform:translateY(3px);}
+.word.selected{border-color:var(--purple-d);background:#fff;}
+.word.gap-before{box-shadow:-14px 0 0 -6px var(--pink-d);}
+.fix-hint{color:var(--ink-soft);font-size:16px;}
+.fix-options{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+
+/* 反馈条 */
+.feedback{
+  width:100%;max-width:860px;margin:0 auto;border-radius:18px;padding:14px 18px;font-size:clamp(15px,2vw,19px);
+  font-weight:700;text-align:center;line-height:1.4;display:none;
+}
+.feedback.show{display:block;animation:fadein .2s;}
+.feedback.ok{background:#eafaf1;color:#2e8f63;border:3px solid var(--mint-d);}
+.feedback.ng{background:#fff0f0;color:#c94f4f;border:3px solid var(--ng);}
+.feedback .ans{color:var(--purple-d);}
+
+.next-wrap{min-height:60px;display:flex;align-items:center;justify-content:center;margin-top:10px;}
+
+/* 星星飞出动画 */
+.star-burst{position:absolute;font-size:34px;pointer-events:none;animation:burst .9s ease forwards;}
+@keyframes burst{
+  0%{opacity:0;transform:translate(0,0) scale(.4);}
+  20%{opacity:1;}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.3) rotate(var(--rot));}
+}
+
+/* ============================================================
+   结果页
+   ============================================================ */
+.result-box{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 22px;}
+.result-head{text-align:center;margin-bottom:10px;}
+.result-head .stars{font-size:52px;line-height:1;}
+.result-head .rank{font-size:24px;font-weight:900;color:var(--purple-d);margin-top:6px;}
+.stat-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:18px 0;}
+.stat{background:var(--cream);border-radius:20px;padding:16px 24px;text-align:center;min-width:140px;}
+.stat .n{font-size:34px;font-weight:900;}
+.stat .l{font-size:14px;color:var(--ink-soft);}
+.section-title{font-size:20px;font-weight:900;margin:22px 0 10px;display:flex;align-items:center;gap:8px;}
+.wrong-list{display:flex;flex-direction:column;gap:12px;}
+.wrong-item{background:#fff6f6;border:2px solid #ffd6d6;border-radius:16px;padding:14px 16px;font-size:16px;line-height:1.5;}
+.wrong-item .q{font-weight:800;}
+.wrong-item .row{margin-top:4px;}
+.wrong-item .your{color:var(--ng);font-weight:800;}
+.wrong-item .cor{color:#2e8f63;font-weight:800;}
+.wrong-item .exp{color:var(--ink-soft);margin-top:4px;font-size:15px;}
+.suggest-box{background:#f3f8ff;border:2px solid var(--blue-d);border-radius:16px;padding:14px 18px;font-size:16px;line-height:1.6;}
+.suggest-box ul{margin:6px 0 0;padding-left:22px;}
+.parent-box{background:#fff8ee;border:2px dashed var(--yellow-d);border-radius:16px;padding:14px 18px;font-size:16px;line-height:1.6;}
+.parent-actions{display:flex;justify-content:flex-end;margin-top:12px;}
+.copy-btn{font-size:14px;padding:8px 16px;}
+.result-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:24px;}
+/* 结果页按钮不用超大号，避免文字过大 */
+.result-actions .btn.big{font-size:clamp(15px,1.7vw,18px);padding:13px 24px;}
+
+.perfect{color:#2e8f63;font-weight:800;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 顶部标题栏 + 全局开关 -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="logo">🚀</span>
+      <h1><span class="cn">现在进行时闯关</span></h1>
+    </div>
+    <div class="toolbar">
+      <div id="classToggle" class="toggle" title="课堂模式：开启后需老师点击“下一题”">
+        <span>👩‍🏫 课堂模式</span><span class="dot"></span>
+      </div>
+      <div id="soundToggle" class="toggle on" title="音效开关">
+        <span>🔊 音效</span><span class="dot"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 桥接选择栏：嵌入积分系统时选择班级 / 学生 -->
+  <div class="bridge-bar" id="bridgeBar">
+    <div class="bridge-field">
+      <span class="bridge-label">班级</span>
+      <select id="classSelect" class="bridge-select"><option value="">选择班级</option></select>
+    </div>
+    <div class="bridge-field">
+      <span class="bridge-label">学生</span>
+      <select id="studentSelect" class="bridge-select"><option value="">请选择学生</option></select>
+    </div>
+    <span class="bridge-hint" id="bridgeHint">请先选择学生，再开始闯关</span>
+  </div>
+
+  <!-- ========== 首页 ========== -->
+  <section id="home" class="screen active">
+    <p class="subtitle">三四年级 · KET 前置语法 · 现在进行时基础补救训练</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <!-- ========== 句子拼装站 · 选择页 ========== -->
+  <section id="buildMenu" class="screen">
+    <p class="subtitle">🧩 句子拼装站 · 选择一个挑战</p>
+    <div class="cards menu-cards" id="buildMenuCards"></div>
+    <div style="text-align:center;margin-top:26px">
+      <button class="btn btn-ghost" onclick="goHome()">🏠 回到首页</button>
+    </div>
+  </section>
+
+  <!-- ========== 游戏页 ========== -->
+  <section id="game" class="screen">
+    <div class="game-hud">
+      <div class="hud-left"><span id="gameTitle">游戏</span></div>
+      <div class="hud-mid">
+        <span class="pill qnum">第 <span id="qNow">1</span> / <span id="qTotal">20</span> 题</span>
+        <span class="pill score">⭐ <span id="score">0</span> 分</span>
+        <span class="timer-wrap">
+          <span>⏱️</span>
+          <span class="timer-bar"><span id="timerFill" class="timer-fill"></span></span>
+          <span id="timerNum" class="timer-num">5</span>
+        </span>
+      </div>
+      <button class="btn btn-ghost" style="padding:10px 18px;font-size:16px" onclick="goHome()">🏠 返回首页</button>
+    </div>
+
+    <div id="stage" class="stage"></div>
+    <div id="feedback" class="feedback"></div>
+    <div id="nextWrap" class="next-wrap"></div>
+  </section>
+
+  <!-- ========== 结果页 ========== -->
+  <section id="result" class="screen">
+    <div class="result-box" id="resultBox"></div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Present Continuous Rescue 现在进行时闯关
+   单文件 · 无外部依赖 · 题库与逻辑分离
+   ------------------------------------------------------------
+   代码结构：
+   1) 题库数据（BE_BANK / ING_BANK / BUILD_BANK / FIX_BANK）
+   2) 工具函数（shuffle、ing 变形生成、音效、动画、localStorage）
+   3) 游戏配置 GAMES（每个游戏的参数 + build + render）
+   4) 通用引擎（开始 / 出题 / 计时 / 判分 / 错题记录 / 结束 / 结果）
+   5) 首页与开关
+   6) 桥接：与积分系统父页面通讯（pctense: 命名空间）
+   ============================================================ */
+
+/* ============================================================
+   6) 桥接：与父页面（积分系统）通讯
+   - 仅在 iframe 内启用：显示班级 / 学生选择栏
+   - 选择班级 -> 通知父页面切换班级
+   - 选择学生 -> 解锁闯关
+   - 结算时 -> 提交得分（计入"互动"）+ 提交错题（写入日志）
+   - 错题重练（只练错题）不重复计分、不重复记错题
+   ============================================================ */
+const _bridge = { classes:[], currentClassId:null, students:[], selectedStudentId:null };
+
+function isInIframe(){ try{ return window.parent && window.parent !== window; }catch(e){ return false; } }
+
+function studentSelected(){ return !!_bridge.selectedStudentId; }
+function selectedStudentName(){
+  const s = _bridge.students.find(function(x){ return x.id === _bridge.selectedStudentId; });
+  return s ? s.name : '';
+}
+
+function updateBridgeHint(){
+  const hint = document.getElementById('bridgeHint');
+  if(!hint) return;
+  if(studentSelected()){
+    hint.textContent = '当前闯关学生：' + selectedStudentName() + '　点击下方关卡开始';
+    hint.classList.add('ready');
+    hint.classList.remove('warn-flash');   // 清除未选学生时的红色警示
+  }else{
+    hint.textContent = '请先选择学生，再开始闯关';
+    hint.classList.remove('ready');
+  }
+}
+
+function populateClassSelect(){
+  const sel = document.getElementById('classSelect');
+  if(!sel) return;
+  const cur = _bridge.currentClassId;
+  sel.innerHTML = '<option value="">选择班级</option>';
+  _bridge.classes.forEach(function(c){
+    const opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.name;
+    if(c.id === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if(cur) sel.value = cur;
+}
+
+function populateStudentSelect(){
+  const sel = document.getElementById('studentSelect');
+  if(!sel) return;
+  const prev = _bridge.selectedStudentId;
+  sel.innerHTML = '<option value="">请选择学生</option>';
+  _bridge.students.forEach(function(s){
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.avatar ? (s.avatar + ' ' + s.name) : s.name;
+    if(s.id === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // 若之前选中的学生仍在列表中，保持选中；否则清空
+  if(prev && _bridge.students.some(function(s){ return s.id === prev; })){
+    sel.value = prev;
+    _bridge.selectedStudentId = prev;
+  }else{
+    sel.value = '';
+    _bridge.selectedStudentId = null;
+  }
+  updateBridgeHint();
+}
+
+function applyBridgeData(payload){
+  if(!payload) return;
+  _bridge.classes = payload.classes || [];
+  _bridge.currentClassId = payload.currentClassId || null;
+  _bridge.students = payload.students || [];
+  populateClassSelect();
+  populateStudentSelect();
+}
+
+function onClassChange(classId){
+  _bridge.selectedStudentId = null;
+  if(isInIframe() && classId){
+    window.parent.postMessage({ type:'pctense:switchClass', classId:classId }, '*');
+  }
+}
+
+function onStudentSelect(studentId){
+  _bridge.selectedStudentId = studentId || null;
+  updateBridgeHint();
+}
+
+function requestBridgeData(){
+  if(isInIframe()){
+    window.parent.postMessage({ type:'pctense:requestData' }, '*');
+  }
+}
+
+/* 结算时提交：得分计入"互动"，错题写入日志（仅正式闯关，错题重练不重复计分） */
+function submitResultToParent(){
+  if(!isInIframe()) return;
+  if(state.isRetry) return;                // 错题重练不重复计分 / 不重复记错题
+  const sid = _bridge.selectedStudentId;
+  if(!sid) return;
+  const levelName = state.cfg ? state.cfg.title.replace(/^[^\\u4e00-\\u9fa5A-Za-z]+/, '') : '现在进行时闯关';
+  // 1) 提交得分（计入"互动"）
+  if(state.score > 0){
+    window.parent.postMessage({ type:'pctense:addScore', studentId:sid, score:state.score, level:levelName }, '*');
+  }
+  // 2) 提交错题（写入日志）
+  if(state.wrong && state.wrong.length){
+    const items = state.wrong.map(function(w){ return String(w.prompt || ''); }).filter(Boolean);
+    if(items.length){
+      window.parent.postMessage({ type:'pctense:addWrongItems', studentId:sid, level:levelName, items:items }, '*');
+    }
+  }
+}
+
+// 接收父页面数据
+window.addEventListener('message', function(ev){
+  const msg = ev && ev.data;
+  if(!msg || typeof msg !== 'object') return;
+  if(msg.type === 'pctense:data'){ applyBridgeData(msg.payload); }
+  else if(msg.type === 'pctense:refresh'){ requestBridgeData(); }
+});
+
+// 初始化桥接：仅嵌入 iframe 时显示选择栏并请求数据
+(function initBridge(){
+  if(!isInIframe()) return;
+  const bar = document.getElementById('bridgeBar');
+  if(bar) bar.classList.add('show');
+  const classSel = document.getElementById('classSelect');
+  const stuSel = document.getElementById('studentSelect');
+  if(classSel){ classSel.addEventListener('change', function(){ onClassChange(this.value); }); }
+  if(stuSel){ stuSel.addEventListener('change', function(){ onStudentSelect(this.value); }); }
+  requestBridgeData();
+})();
+
+/* ============================================================
+   1) 题库数据
+   ------------------------------------------------------------
+   —— 老师后续可直接在这些数组里增删题目 ——
+   ============================================================ */
+
+/* 游戏1 Be 动词雷达
+   格式：{ subject:主语, answer:'am'|'is'|'are' } */
+const BE_BANK = [
+  {subject:'I', answer:'am'},
+  {subject:'he', answer:'is'},
+  {subject:'she', answer:'is'},
+  {subject:'it', answer:'is'},
+  {subject:'Tom', answer:'is'},
+  {subject:'Lily', answer:'is'},
+  {subject:'my father', answer:'is'},
+  {subject:'my mother', answer:'is'},
+  {subject:'my teacher', answer:'is'},
+  {subject:'this boy', answer:'is'},
+  {subject:'that girl', answer:'is'},
+  {subject:'my dog', answer:'is'},
+  {subject:'the cat', answer:'is'},
+  {subject:'you', answer:'are'},
+  {subject:'we', answer:'are'},
+  {subject:'they', answer:'are'},
+  {subject:'Tom and Lily', answer:'are'},
+  {subject:'my friends', answer:'are'},
+  {subject:'the students', answer:'are'},
+  {subject:'these boys', answer:'are'},
+  {subject:'those girls', answer:'are'},
+  {subject:'my parents', answer:'are'},
+  {subject:'cats', answer:'are'},
+  {subject:'dogs', answer:'are'},
+  {subject:'children', answer:'are'}
+];
+
+/* 游戏2 ing 变身工厂
+   格式：{ verb:动词原形, rule:'direct'|'dropE'|'double'|'ee' }
+   rule 用于自动生成正确 ing 形式 + 干扰项，并决定错误类型标签 */
+const ING_BANK = [
+  // 一般直接加 ing
+  {verb:'play', rule:'direct'}, {verb:'read', rule:'direct'}, {verb:'eat', rule:'direct'},
+  {verb:'drink', rule:'direct'}, {verb:'sleep', rule:'direct'}, {verb:'watch', rule:'direct'},
+  {verb:'sing', rule:'direct'}, {verb:'jump', rule:'direct'}, {verb:'walk', rule:'direct'},
+  // 去 e 加 ing
+  {verb:'make', rule:'dropE'}, {verb:'take', rule:'dropE'}, {verb:'write', rule:'dropE'},
+  {verb:'ride', rule:'dropE'}, {verb:'dance', rule:'dropE'}, {verb:'come', rule:'dropE'},
+  {verb:'have', rule:'dropE'}, {verb:'give', rule:'dropE'},
+  // 双写辅音字母加 ing
+  {verb:'run', rule:'double'}, {verb:'swim', rule:'double'}, {verb:'sit', rule:'double'},
+  {verb:'get', rule:'double'}, {verb:'put', rule:'double'}, {verb:'shop', rule:'double'},
+  {verb:'stop', rule:'double'}, {verb:'clap', rule:'double'},
+  // 特殊
+  {verb:'see', rule:'ee'}, {verb:'be', rule:'direct'}
+];
+
+/* 游戏3 句子拼装站
+   格式：{ cn:中文提示, answer:[正确词序], blocks:[所有可选词块(含干扰)] } */
+const BUILD_BANK = [
+  {cn:'他正在踢足球。', answer:['He','is','playing','football'], blocks:['He','is','playing','football','plays','play']},
+  {cn:'她正在读书。', answer:['She','is','reading','a book'], blocks:['She','is','reading','a book','reads','read']},
+  {cn:'我正在写作业。', answer:['I','am','doing','homework'], blocks:['I','am','doing','homework','do','is']},
+  {cn:'他们正在看电视。', answer:['They','are','watching','TV'], blocks:['They','are','watching','TV','watch','is']},
+  {cn:'Tom 正在游泳。', answer:['Tom','is','swimming'], blocks:['Tom','is','swimming','swim','are','swims']},
+  {cn:'Lily 正在跳舞。', answer:['Lily','is','dancing'], blocks:['Lily','is','dancing','dance','dances','are']},
+  {cn:'我们正在上英语课。', answer:['We','are','having','an English lesson'], blocks:['We','are','having','an English lesson','have','is']},
+  {cn:'那只猫正在睡觉。', answer:['The cat','is','sleeping'], blocks:['The cat','is','sleeping','sleeps','sleep','are']},
+  {cn:'我的朋友们正在跑步。', answer:['My friends','are','running'], blocks:['My friends','are','running','run','runs','is']},
+  {cn:'Ben 正在骑自行车。', answer:['Ben','is','riding','a bike'], blocks:['Ben','is','riding','a bike','ride','rides','are']},
+  // —— 以下为补充题（凑够 15 题，老师可自行修改）——
+  {cn:'那些男孩正在打篮球。', answer:['Those boys','are','playing','basketball'], blocks:['Those boys','are','playing','basketball','play','is']},
+  {cn:'我妈妈正在做饭。', answer:['My mother','is','cooking'], blocks:['My mother','is','cooking','cook','cooks','are']},
+  {cn:'孩子们正在唱歌。', answer:['The children','are','singing'], blocks:['The children','are','singing','sing','sings','is']},
+  {cn:'我正在喝水。', answer:['I','am','drinking','water'], blocks:['I','am','drinking','water','drink','is']},
+  {cn:'他正在写信。', answer:['He','is','writing','a letter'], blocks:['He','is','writing','a letter','write','writes']}
+];
+
+/* 句子拼装站（二）——一般疑问句题库
+   格式同上，句首用 be 动词(Is/Are)，句末 end:'?'。主语在 be 之后用小写。 */
+const BUILD_Q_BANK = [
+  {cn:'他正在踢足球吗？', answer:['Is','he','playing','football'], end:'?', blocks:['Is','he','playing','football','Are','plays','play']},
+  {cn:'她正在读书吗？', answer:['Is','she','reading','a book'], end:'?', blocks:['Is','she','reading','a book','Are','reads','read']},
+  {cn:'你正在写作业吗？', answer:['Are','you','doing','homework'], end:'?', blocks:['Are','you','doing','homework','Is','do','does']},
+  {cn:'他们正在看电视吗？', answer:['Are','they','watching','TV'], end:'?', blocks:['Are','they','watching','TV','Is','watch','watches']},
+  {cn:'Tom 正在游泳吗？', answer:['Is','Tom','swimming'], end:'?', blocks:['Is','Tom','swimming','Are','swim','swims']},
+  {cn:'孩子们正在唱歌吗？', answer:['Are','the children','singing'], end:'?', blocks:['Are','the children','singing','Is','sing','sings']},
+  {cn:'那只猫正在睡觉吗？', answer:['Is','the cat','sleeping'], end:'?', blocks:['Is','the cat','sleeping','Are','sleep','sleeps']},
+  {cn:'Ben 正在骑自行车吗？', answer:['Is','Ben','riding','a bike'], end:'?', blocks:['Is','Ben','riding','a bike','Are','ride','rides']},
+  {cn:'你正在喝水吗？', answer:['Are','you','drinking','water'], end:'?', blocks:['Are','you','drinking','water','Is','drink','drinks']},
+  {cn:'我们正在跑步吗？', answer:['Are','we','running'], end:'?', blocks:['Are','we','running','Is','run','runs']}
+];
+
+/* 游戏4 改错小侦探
+   格式：{
+     words:[句子分词], errorIndex:要点击的词下标,
+     fixType:'insert'(在该词前补词) | 'replace'(替换该词),
+     options:[3个修改选项], correct:正确选项,
+     correctSentence:正确整句, explain:讲解, type:错误类型
+   } */
+const FIX_BANK = [
+  {words:['He','playing','football'], errorIndex:1, fixType:'insert',
+   options:['is','are','am'], correct:'is',
+   correctSentence:'He is playing football.', explain:'现在进行时不能漏 be 动词，he 后面用 is。', type:'漏 be 动词'},
+  {words:['She','reading','a book'], errorIndex:1, fixType:'insert',
+   options:['is','am','are'], correct:'is',
+   correctSentence:'She is reading a book.', explain:'she 是三单主语，现在进行时用 is + reading。', type:'漏 be 动词'},
+  {words:['I','is','watching','TV'], errorIndex:1, fixType:'replace',
+   options:['am','are','is'], correct:'am',
+   correctSentence:'I am watching TV.', explain:'I 后面的 be 动词是 am。', type:'be 动词选错'},
+  {words:['They','is','playing','basketball'], errorIndex:1, fixType:'replace',
+   options:['are','am','is'], correct:'are',
+   correctSentence:'They are playing basketball.', explain:'they 是复数主语，be 动词用 are。', type:'be 动词选错'},
+  {words:['Tom','are','swimming'], errorIndex:1, fixType:'replace',
+   options:['is','am','are'], correct:'is',
+   correctSentence:'Tom is swimming.', explain:'Tom 是单个人名，be 动词用 is。', type:'be 动词选错'},
+  {words:['She','is','makeing','a cake'], errorIndex:2, fixType:'replace',
+   options:['making','makeing','makking'], correct:'making',
+   correctSentence:'She is making a cake.', explain:'make 以不发音 e 结尾，要去 e 加 ing。', type:'去 e 加 ing 错误'},
+  {words:['He','is','rideing','a bike'], errorIndex:2, fixType:'replace',
+   options:['riding','rideing','ridding'], correct:'riding',
+   correctSentence:'He is riding a bike.', explain:'ride 以不发音 e 结尾，要去 e 加 ing。', type:'去 e 加 ing 错误'},
+  {words:['Lily','is','danceing'], errorIndex:2, fixType:'replace',
+   options:['dancing','danceing','danching'], correct:'dancing',
+   correctSentence:'Lily is dancing.', explain:'dance 去 e 加 ing，变成 dancing。', type:'去 e 加 ing 错误'},
+  {words:['The boy','is','runing'], errorIndex:2, fixType:'replace',
+   options:['running','runing','runningg'], correct:'running',
+   correctSentence:'The boy is running.', explain:'run 要双写 n，再加 ing。', type:'双写辅音加 ing 错误'},
+  {words:['They','are','swiming'], errorIndex:2, fixType:'replace',
+   options:['swimming','swiming','swimmimg'], correct:'swimming',
+   correctSentence:'They are swimming.', explain:'swim 要双写 m，再加 ing。', type:'双写辅音加 ing 错误'},
+  {words:['The cat','is','siting','on the chair'], errorIndex:2, fixType:'replace',
+   options:['sitting','siting','sittting'], correct:'sitting',
+   correctSentence:'The cat is sitting on the chair.', explain:'sit 要双写 t，再加 ing。', type:'双写辅音加 ing 错误'},
+  {words:['We','are','haveing','lunch'], errorIndex:2, fixType:'replace',
+   options:['having','haveing','havving'], correct:'having',
+   correctSentence:'We are having lunch.', explain:'have 去 e 加 ing，变成 having。', type:'去 e 加 ing 错误'},
+  {words:['He','is','plays','football'], errorIndex:2, fixType:'replace',
+   options:['playing','plays','play'], correct:'playing',
+   correctSentence:'He is playing football.', explain:'be 后面要用动词 ing，不能用三单形式 plays。', type:'be 后用了原形或三单'},
+  {words:['She','is','watch','TV'], errorIndex:2, fixType:'replace',
+   options:['watching','watch','watchs'], correct:'watching',
+   correctSentence:'She is watching TV.', explain:'is 后面的动词要变成 ing 形式。', type:'be 后用了原形或三单'},
+  {words:['They','are','go','to school'], errorIndex:2, fixType:'replace',
+   options:['going','go','goes'], correct:'going',
+   correctSentence:'They are going to school.', explain:'are 后面要用 going，不是 go。', type:'be 后用了原形或三单'}
+];
+
+/* ============================================================
+   2) 工具函数
+   ============================================================ */
+
+/* Fisher–Yates 洗牌 */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+/* 按答案类型打散：贪心重排，尽量让相邻两题答案不同（避免连续都是 is 或都是 are） */
+function spreadByKey(items, keyFn){
+  const buckets = {};
+  items.forEach(it=>{ const k = keyFn(it); (buckets[k] = buckets[k] || []).push(it); });
+  Object.keys(buckets).forEach(k=>{ buckets[k] = shuffle(buckets[k]); });
+  const result = [];
+  let lastKey = null;
+  const total = items.length;
+  while(result.length < total){
+    let keys = Object.keys(buckets).filter(k=>buckets[k].length > 0);
+    if(keys.length === 0) break;
+    // 选剩余数量最多、且不等于上一题答案的桶；实在没有再退而求其次
+    keys.sort((a,b)=>buckets[b].length - buckets[a].length);
+    let pick = keys.find(k=>k !== lastKey);
+    if(!pick) pick = keys[0];
+    result.push(buckets[pick].pop());
+    lastKey = pick;
+  }
+  return result;
+}
+
+/* 根据 rule 生成动词的正确 ing 形式 + 干扰项（去重、保证 3 个且都不重复） */
+function makeIngOptions(verb, rule){
+  const last = verb[verb.length-1];
+  const add   = verb + 'ing';               // 直接加：play->playing
+  const dropE = verb.slice(0,-1) + 'ing';   // 去尾字母加 ing：make->making
+  const dbl   = verb + last + 'ing';        // 双写末字母加 ing：run->running
+  const tri   = verb + last + last + 'ing'; // 过度双写：run->runnning
+
+  let correct, wrongs;
+  if(rule === 'direct'){        // play->playing, be->being
+    correct = add;
+    wrongs = [dropE, dbl];
+  } else if(rule === 'dropE'){   // make->making
+    correct = dropE;
+    wrongs = [add, dbl];
+  } else if(rule === 'double'){  // run->running
+    correct = dbl;
+    wrongs = [add, tri];         // runing / runnning
+  } else { // 'ee'  see->seeing
+    correct = add;               // seeing
+    wrongs = [dropE, verb.slice(0,-1) + verb.slice(-1) + 'ng']; // seing / seeng 备用
+  }
+
+  // 组装并去重，确保干扰项 ≠ 正确项 且彼此不同
+  const set = [];
+  const push = w => { if(w && w!==correct && set.indexOf(w)===-1) set.push(w); };
+  wrongs.forEach(push);
+  // 兜底：若干扰项不足 2 个，补一个明显错误形式
+  let filler = 0;
+  while(set.length < 2){
+    const cand = verb + (filler===0 ? 'ing'+last : 'in'+ 'g'.repeat(filler+1));
+    push(cand); filler++;
+    if(filler>4) break;
+  }
+  const options = shuffle([correct, set[0], set[1]].filter(Boolean));
+  return {options, correct};
+}
+
+/* ---------- 音效（Web Audio，用户点击后懒加载并 resume，避免 suspended） ---------- */
+let audioCtx = null;
+function ensureAudio(){
+  try{
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC) audioCtx = new AC();
+    }
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){ audioCtx = null; }
+}
+function tone(freq, start, dur, type, vol){
+  if(!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type || 'sine';
+  o.frequency.value = freq;
+  o.connect(g); g.connect(audioCtx.destination);
+  const t = audioCtx.currentTime + start;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol || 0.2, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.start(t);
+  o.stop(t + dur + 0.05);
+}
+function playSound(kind){
+  if(!settings.sound) return;
+  ensureAudio();
+  if(!audioCtx) return;
+  if(kind === 'ok'){        // 上扬双音
+    tone(659, 0, 0.13, 'triangle', 0.22);
+    tone(988, 0.11, 0.18, 'triangle', 0.22);
+  }else if(kind === 'ng'){  // 低沉提示
+    tone(196, 0, 0.28, 'sawtooth', 0.15);
+  }else if(kind === 'click'){
+    tone(523, 0, 0.06, 'sine', 0.12);
+  }else if(kind === 'tick'){
+    tone(880, 0, 0.05, 'square', 0.06);
+  }
+}
+
+/* ---------- 星星飞出动画 ---------- */
+function starBurst(){
+  const stage = document.getElementById('stage');
+  const stars = ['⭐','🌟','✨','💫'];
+  for(let i=0;i<10;i++){
+    const s = document.createElement('span');
+    s.className = 'star-burst';
+    s.textContent = stars[i % stars.length];
+    s.style.left = '50%';
+    s.style.top = '40%';
+    const ang = Math.random()*Math.PI*2;
+    const dist = 120 + Math.random()*160;
+    s.style.setProperty('--dx', Math.cos(ang)*dist + 'px');
+    s.style.setProperty('--dy', Math.sin(ang)*dist + 'px');
+    s.style.setProperty('--rot', (Math.random()*360-180) + 'deg');
+    stage.appendChild(s);
+    setTimeout(()=>s.remove(), 950);
+  }
+}
+
+/* ---------- localStorage 最高分（带兜底，隐私模式可能抛错） ---------- */
+function getHigh(key){
+  try{ return parseInt(localStorage.getItem('pcr_high_'+key) || '0', 10) || 0; }
+  catch(e){ return 0; }
+}
+function setHigh(key, val){
+  try{ if(val > getHigh(key)) localStorage.setItem('pcr_high_'+key, String(val)); }
+  catch(e){}
+}
+function loadSettings(){
+  try{
+    settings.classroom = localStorage.getItem('pcr_classroom') === '1';
+    const s = localStorage.getItem('pcr_sound');
+    settings.sound = (s === null) ? true : (s === '1');
+  }catch(e){}
+}
+function saveSettings(){
+  try{
+    localStorage.setItem('pcr_classroom', settings.classroom ? '1':'0');
+    localStorage.setItem('pcr_sound', settings.sound ? '1':'0');
+  }catch(e){}
+}
+
+/* ============================================================
+   3) 游戏配置：参数 + 出题函数(build) + 渲染函数(render)
+   ============================================================
+   每个 render(q) 需在渲染时调用 setMeta(...) 记录本题信息，
+   供“计时超时 / 错题记录 / 反馈显示”统一使用。
+   判分统一调用 handleResult(isCorrect, yourDisplay)。
+*/
+/* 句子拼装站共享渲染逻辑（肯定句 / 一般疑问句 共用）
+   题库项含标点 end（默认句号），词块池附带正确标点 + 一个干扰标点，
+   学生点到标点自动交卷。 */
+function buildRender(q){
+  const end = q.end || '.';                       // 句末标点，默认句号；疑问句题库设 end:'?'
+  const fullAnswer = q.answer.concat([end]);       // 完整答案含标点
+  setMeta({
+    prompt: q.cn,
+    correctDisplay: q.answer.join(' ') + end,
+    explain: '现在进行时要有 be 动词、动词变 ing，句末别忘了标点。肯定句：主语+be+doing；一般疑问句：be+主语+doing?',
+    type: '句型结构'
+  });
+  const stage = document.getElementById('stage');
+  stage.innerHTML =
+    '<div class="prompt-cn">' + esc(q.cn) + '</div>' +
+    '<div class="build-answer" id="ansArea"><span class="placeholder">点下面的词块，把句子拼在这里 👇</span></div>' +
+    '<div class="build-pool" id="poolArea"></div>' +
+    '<div class="build-hint">拼好句子后，点最后的标点符号（。/ ？）就会自动交卷 ✅</div>' +
+    '<div class="build-controls">' +
+      '<button class="btn btn-yellow" id="undoBtn">↩️ 清空重拼</button>' +
+    '</div>';
+  const pool = document.getElementById('poolArea');
+  const ans = document.getElementById('ansArea');
+  const chosen = []; // 已选词块 {id, word, punct}
+
+  // 词块池：先词语（含干扰），标点放最后（正确标点 + 一个干扰标点）
+  const wordTokens = shuffle(q.blocks).map((w,idx)=>({id:'w'+idx, word:w, punct:false}));
+  const punctTokens = shuffle([end, (end === '.' ? '?' : '.')]).map((p,idx)=>({id:'p'+idx, word:p, punct:true}));
+  const tokens = wordTokens.concat(punctTokens);
+
+  tokens.forEach(tk=>{
+    const c = document.createElement('button');
+    c.className = 'chip pool' + (tk.punct ? ' punct' : '');
+    c.textContent = tk.word; c.dataset.id = tk.id;
+    c.onclick = ()=>{
+      if(state.answered) return;
+      playSound('click');
+      c.classList.add('used');
+      chosen.push(tk);
+      renderAns();
+      // 点到标点 → 自动提交
+      if(tk.punct){
+        const got = chosen.map(t=>t.word).join('|');   // 用 | 分隔，词块本身不含 |
+        const want = fullAnswer.join('|');
+        handleResult(got === want, chosen.map(t=>t.word).join(' '));
+      }
+    };
+    pool.appendChild(c);
+  });
+
+  function renderAns(){
+    ans.innerHTML = '';
+    if(chosen.length === 0){
+      ans.innerHTML = '<span class="placeholder">点下面的词块，把句子拼在这里 👇</span>';
+      return;
+    }
+    chosen.forEach((tk, i)=>{
+      const c = document.createElement('button');
+      c.className = 'chip' + (tk.punct ? ' punct' : '');
+      c.textContent = tk.word;
+      c.onclick = ()=>{
+        if(state.answered) return;
+        playSound('click');
+        const poolChip = pool.querySelector('[data-id="'+tk.id+'"]');
+        if(poolChip) poolChip.classList.remove('used');
+        chosen.splice(i,1);
+        renderAns();
+      };
+      ans.appendChild(c);
+    });
+  }
+  document.getElementById('undoBtn').onclick = ()=>{
+    if(state.answered) return;
+    playSound('click');
+    chosen.length = 0;
+    pool.querySelectorAll('.chip.pool').forEach(c=>c.classList.remove('used'));
+    renderAns();
+  };
+}
+
+const GAMES = {
+  be: {
+    key:'be', title:'📡 Be 动词雷达', emoji:'📡', cls:'c1', btn:'btn-pink',
+    desc:'看主语，5 秒内选对 am / is / are',
+    count:20, time:5, correctScore:10,
+    build(){
+      // 抽题 → 保证至少含一个 am(I) → 按答案打散，am/is/are 混合出现
+      const bag = shuffle(BE_BANK);
+      const picked = bag.slice(0, Math.min(this.count, BE_BANK.length));
+      if(!picked.some(q=>q.answer === 'am')){
+        const amItem = BE_BANK.find(q=>q.answer === 'am');
+        if(amItem) picked[picked.length - 1] = amItem;
+      }
+      return spreadByKey(picked, q=>q.answer);
+    },
+    render(q){
+      const subjectCap = capFirst(q.subject);   // 开头字母大写
+      setMeta({
+        prompt: subjectCap,
+        correctDisplay: q.answer,
+        explain: '现在进行时结构是：主语 + am / is / are + 动词ing。',
+        type: 'be 动词搭配'
+      });
+      const stage = document.getElementById('stage');
+      stage.innerHTML =
+        '<div class="prompt-sub">主语后面用哪个 be 动词？</div>' +
+        '<div class="prompt-big">' + esc(subjectCap) + ' ___ ...ing</div>' +
+        '<div class="opt-row" id="optRow"></div>';
+      const row = document.getElementById('optRow');
+      ['am','is','are'].forEach(opt=>{
+        const b = document.createElement('button');
+        b.className = 'opt'; b.textContent = opt;
+        b.onclick = ()=>{
+          const ok = (opt === q.answer);
+          markOptButtons(row, opt, q.answer);
+          handleResult(ok, opt);
+        };
+        row.appendChild(b);
+      });
+    }
+  },
+
+  ing: {
+    key:'ing', title:'🏭 ing 变身工厂', emoji:'🏭', cls:'c2', btn:'btn-mint',
+    desc:'把动词变成正确的 ing 形式',
+    count:20, time:8, correctScore:10,
+    build(){
+      const bag = shuffle(ING_BANK).slice(0, Math.min(this.count, ING_BANK.length));
+      // 在出题时生成选项并附加，重练时保持一致
+      return bag.map(v=>{
+        const g = makeIngOptions(v.verb, v.rule);
+        return {verb:v.verb, rule:v.rule, options:g.options, correct:g.correct};
+      });
+    },
+    render(q){
+      setMeta({
+        prompt: q.verb + ' → ?',
+        correctDisplay: q.correct,
+        explain: '看动词结尾：一般直接加 ing；去 e 加 ing；短元音后双写再加 ing。',
+        type: ingType(q.rule)
+      });
+      const stage = document.getElementById('stage');
+      stage.innerHTML =
+        '<div class="prompt-sub">这个动词的 ing 形式是？</div>' +
+        '<div class="prompt-big">' + esc(q.verb) + '</div>' +
+        '<div class="opt-row" id="optRow"></div>';
+      const row = document.getElementById('optRow');
+      q.options.forEach(opt=>{
+        const b = document.createElement('button');
+        b.className = 'opt'; b.textContent = opt;
+        b.onclick = ()=>{
+          const ok = (opt === q.correct);
+          markOptButtons(row, opt, q.correct);
+          handleResult(ok, opt);
+        };
+        row.appendChild(b);
+      });
+    }
+  },
+
+  build_pos: {
+    key:'build_pos', title:'🧩 句子拼装站 · 肯定句', emoji:'🧩', cls:'c3', btn:'btn-blue',
+    desc:'拼出完整的肯定句：主语 + be + doing',
+    count:15, time:15, correctScore:15,
+    build(){
+      return shuffle(BUILD_BANK).slice(0, Math.min(this.count, BUILD_BANK.length));
+    },
+    render: buildRender
+  },
+
+  build_q: {
+    key:'build_q', title:'❓ 句子拼装站 · 一般疑问句', emoji:'❓', cls:'c3', btn:'btn-blue',
+    desc:'拼出一般疑问句：be + 主语 + doing ?',
+    count:15, time:15, correctScore:15,
+    build(){
+      return shuffle(BUILD_Q_BANK).slice(0, Math.min(this.count, BUILD_Q_BANK.length));
+    },
+    render: buildRender
+  },
+
+  fix: {
+    key:'fix', title:'🕵️ 改错小侦探', emoji:'🕵️', cls:'c4', btn:'btn-yellow',
+    desc:'找出句子里的错误并改正',
+    count:15, time:12, correctScore:15,
+    build(){
+      return shuffle(FIX_BANK).slice(0, Math.min(this.count, FIX_BANK.length));
+    },
+    render(q){
+      setMeta({
+        prompt: q.words.join(' '),
+        correctDisplay: q.correctSentence,
+        explain: q.explain,
+        type: q.type
+      });
+      const stage = document.getElementById('stage');
+      stage.innerHTML =
+        '<div class="prompt-sub">这句话有一个错误，点出错的地方 🔍</div>' +
+        '<div class="fix-sentence" id="fixSent"></div>' +
+        '<div class="fix-hint" id="fixHint"></div>' +
+        '<div class="fix-options" id="fixOpts"></div>';
+      const sent = document.getElementById('fixSent');
+      const hint = document.getElementById('fixHint');
+      const opts = document.getElementById('fixOpts');
+
+      q.words.forEach((w, idx)=>{
+        const b = document.createElement('button');
+        b.className = 'word';
+        // insert 类型：在缺词位置的下一个词左侧显示空缺标记，提示这里漏了词
+        if(q.fixType === 'insert' && idx === q.errorIndex) b.classList.add('gap-before');
+        b.textContent = w;
+        b.onclick = ()=>{
+          if(state.answered) return;
+          playSound('click');
+          if(idx === q.errorIndex){
+            // 找对了错误位置 → 弹出 3 个修改选项
+            sent.querySelectorAll('.word').forEach(x=>x.classList.remove('selected'));
+            b.classList.add('selected');
+            hint.textContent = (q.fixType === 'insert')
+              ? '这里漏了一个词，应该加上：'
+              : '把这个词改成：';
+            opts.innerHTML = '';
+            q.options.forEach(op=>{
+              const ob = document.createElement('button');
+              ob.className = 'opt'; ob.textContent = op;
+              ob.style.fontSize = '22px'; ob.style.minWidth='96px'; ob.style.padding='14px 20px';
+              ob.onclick = ()=>{
+                if(state.answered) return;
+                const ok = (op === q.correct);
+                Array.from(opts.children).forEach(c=>{
+                  c.disabled = true;
+                  if(c.textContent === q.correct) c.classList.add('correct');
+                  else if(c === ob && !ok) c.classList.add('wrong');
+                });
+                handleResult(ok, op);
+              };
+              opts.appendChild(ob);
+            });
+          }else{
+            // 点错了位置 → 直接判错，并高亮真正的错误词
+            const realWord = q.words[q.errorIndex];
+            sent.querySelectorAll('.word').forEach((x,i)=>{
+              if(i === q.errorIndex) x.classList.add('selected');
+            });
+            handleResult(false, '点错了位置：' + w);
+          }
+        };
+        sent.appendChild(b);
+      });
+    }
+  }
+};
+
+/* ing 规则 → 错误类型标签 */
+function ingType(rule){
+  if(rule === 'dropE')  return '去 e 加 ing 错误';
+  if(rule === 'double') return '双写辅音加 ing 错误';
+  if(rule === 'ee')     return 'ing 特殊变化';
+  return 'ing 直接加错误';
+}
+
+/* 复习建议映射：错误类型 → 建议文案 */
+const TYPE_SUGGEST = {
+  'be 动词搭配':        '复习 be 动词搭配：I→am，he/she/it/单数→is，you/we/they/复数→are。',
+  '漏 be 动词':          '牢记结构“主语 + be + 动词ing”，千万不要漏掉 am / is / are。',
+  'be 动词选错':         '复习 be 动词搭配：主语不同，be 动词不同。',
+  'ing 直接加错误':      '一般动词直接加 ing：play → playing, read → reading。',
+  '去 e 加 ing 错误':    '去 e 加 ing：make → making, ride → riding, dance → dancing。',
+  '双写辅音加 ing 错误': '短元音后双写辅音再加 ing：run → running, swim → swimming, sit → sitting。',
+  'ing 特殊变化':        '特殊记忆：see → seeing（不去 e），be → being。',
+  'be 后用了原形或三单': 'be 动词后面的动词要用 ing 形式，不能用原形或三单：is playing（✗ is play / is plays）。',
+  '句型结构':            '现在进行时要“be + doing”齐全，主语和 be 动词要一一对应。'
+};
+
+/* ============================================================
+   4) 通用引擎
+   ============================================================ */
+const settings = { classroom:false, sound:true };
+let state = null;   // 每局运行时状态
+let meta  = null;   // 当前题信息（渲染时写入）
+
+/* 供 render 调用，记录当前题目的判分信息 */
+function setMeta(m){ meta = m; }
+
+/* HTML 转义，防止题库文本破坏结构 */
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* 首字母大写（句子/主语开头统一大写） */
+function capFirst(s){
+  s = String(s);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/* 屏幕切换 */
+function showScreen(id){
+  ['home','buildMenu','game','result'].forEach(s=>{
+    document.getElementById(s).classList.toggle('active', s === id);
+  });
+  // 首页与拼装站选择页都启用居中布局
+  document.body.classList.toggle('home-view', id === 'home' || id === 'buildMenu');
+  window.scrollTo(0,0);
+}
+
+/* —— 开始一局 ——
+   customQuestions：传入则为“只练错题”重练模式 */
+function startGame(key, customQuestions){
+  // 嵌入积分系统时：必须先选择学生才能闯关
+  if(isInIframe() && !studentSelected()){
+    updateBridgeHint();
+    // 醒目警示：提示条变红抖动 + 滚动到顶部（alert 可能被 sandbox 拦截，作为兜底）
+    const hint = document.getElementById('bridgeHint');
+    if(hint){
+      hint.classList.remove('warn-flash');
+      void hint.offsetWidth;               // 强制重绘以重启动画
+      hint.classList.add('warn-flash');
+    }
+    try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+    try{ alert('请先在上方选择「学生」，再开始闯关。'); }catch(e){}
+    const ss = document.getElementById('studentSelect');
+    if(ss) ss.focus();
+    return;
+  }
+  const cfg = GAMES[key];
+  const questions = customQuestions ? shuffle(customQuestions) : cfg.build();
+  state = {
+    key, cfg, questions,
+    i:0, score:0, correct:0,
+    wrong:[],      // 结果展示用（含 your/correct/explain）
+    wrongQ:[],     // 原始题目对象，用于“只练错题”
+    answered:false,
+    timer:null, timeLeft:0,
+    isRetry: !!customQuestions
+  };
+  document.getElementById('gameTitle').textContent = cfg.title;
+  document.getElementById('qTotal').textContent = questions.length;
+  showScreen('game');
+  renderQuestion();
+}
+
+/* —— 出题 —— */
+function renderQuestion(){
+  state.answered = false;
+  meta = null;
+  clearFeedback();
+  document.getElementById('nextWrap').innerHTML = '';
+  document.getElementById('qNow').textContent = state.i + 1;
+  updateHUD();
+  const stage = document.getElementById('stage');
+  stage.className = 'stage';
+  const q = state.questions[state.i];
+  state.cfg.render(q);       // 各游戏自己渲染，并调用 setMeta
+  startTimer(state.cfg.time);
+}
+
+/* —— 倒计时逻辑 ——
+   每题独立倒计时，归零则按“超时未答”判错 */
+function startTimer(sec){
+  state.timeLeft = sec;
+  const fill = document.getElementById('timerFill');
+  fill.classList.remove('warn');
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+  // 强制重绘后再开启过渡，保证进度条从满格平滑下降
+  void fill.offsetWidth;
+  fill.style.transition = 'width .95s linear';
+  updateTimerUI();
+  clearInterval(state.timer);
+  state.timer = setInterval(()=>{
+    state.timeLeft--;
+    updateTimerUI();
+    if(state.timeLeft <= 3 && state.timeLeft > 0) playSound('tick');
+    if(state.timeLeft <= 0){
+      clearInterval(state.timer);
+      if(!state.answered) handleResult(false, '(超时未答)');
+    }
+  }, 1000);
+}
+function updateTimerUI(){
+  const num = document.getElementById('timerNum');
+  const fill = document.getElementById('timerFill');
+  num.textContent = Math.max(0, state.timeLeft);
+  const pct = Math.max(0, state.timeLeft / state.cfg.time * 100);
+  fill.style.width = pct + '%';
+  fill.classList.toggle('warn', state.timeLeft <= 3);
+}
+function updateHUD(){
+  document.getElementById('score').textContent = state.score;
+  document.getElementById('qNow').textContent = Math.min(state.i + 1, state.questions.length);
+}
+
+/* —— 统一判分 + 错题记录逻辑 —— */
+function handleResult(isCorrect, yourDisplay){
+  if(state.answered) return;          // 防止重复触发
+  state.answered = true;
+  clearInterval(state.timer);
+  const stage = document.getElementById('stage');
+
+  if(isCorrect){
+    state.score += state.cfg.correctScore;
+    state.correct++;
+    playSound('ok');
+    stage.classList.add('flash-ok');
+    starBurst();
+    showFeedback(true);
+  }else{
+    // 记录错题：结果展示 + 原始题目（重练用）
+    state.wrong.push({
+      prompt: (meta && meta.prompt) || '',
+      your: yourDisplay,
+      correct: (meta && meta.correctDisplay) || '',
+      explain: (meta && meta.explain) || '',
+      type: (meta && meta.type) || ''
+    });
+    state.wrongQ.push(state.questions[state.i]);
+    playSound('ng');
+    stage.classList.add('shake');
+    showFeedback(false);
+  }
+  updateHUD();
+
+  // 课堂模式：等老师点“下一题”；否则自动进入下一题
+  if(settings.classroom){
+    const nw = document.getElementById('nextWrap');
+    nw.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-purple big';
+    btn.textContent = (state.i + 1 >= state.questions.length) ? '🏁 看看成绩' : '➡️ 下一题';
+    btn.onclick = nextQuestion;
+    nw.appendChild(btn);
+  }else{
+    setTimeout(nextQuestion, isCorrect ? 1200 : 2600);
+  }
+}
+
+/* 反馈显示 */
+function showFeedback(ok){
+  const fb = document.getElementById('feedback');
+  if(ok){
+    fb.className = 'feedback ok show';
+    const okMsgs = {
+      be:'Great! 现在进行时不能漏 be 动词。',
+      ing:'Great! 动词 ing 变化正确。',
+      build:'Excellent! 结构完整：be + doing。',
+      fix:'Nice! 你是改错小侦探 🕵️'
+    };
+    fb.innerHTML = '✅ ' + esc(okMsgs[state.key] || '答对啦！');
+  }else{
+    fb.className = 'feedback ng show';
+    fb.innerHTML =
+      '❌ 正确答案：<span class="ans">' + esc(meta ? meta.correctDisplay : '') + '</span><br>' +
+      '💡 ' + esc(meta ? meta.explain : '');
+  }
+}
+function clearFeedback(){
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback';
+  fb.innerHTML = '';
+}
+
+/* 选项按钮着色（选择题通用） */
+function markOptButtons(row, chosen, correct){
+  Array.from(row.children).forEach(b=>{
+    b.disabled = true;
+    if(b.textContent === correct) b.classList.add('correct');
+    else if(b.textContent === chosen) b.classList.add('wrong');
+  });
+}
+
+/* 下一题 / 结束 */
+function nextQuestion(){
+  state.i++;
+  if(state.i >= state.questions.length){
+    endGame();
+  }else{
+    renderQuestion();
+  }
+}
+
+/* —— 结束一局 —— */
+function endGame(){
+  clearInterval(state.timer);
+  // 非重练模式才更新最高分（重练题量少，不计入）
+  if(!state.isRetry) setHigh(state.key, state.score);
+  // 嵌入积分系统时：提交得分（计入"互动"）+ 错题（写入日志）
+  submitResultToParent();
+  showResult();
+}
+
+/* —— 结果页 —— */
+function showResult(){
+  const total = state.questions.length;
+  const correct = state.correct;
+  const acc = total ? Math.round(correct / total * 100) : 0;
+
+  // 星级
+  let stars, rank;
+  if(acc >= 90){ stars = '⭐⭐⭐'; rank = 'Grammar Master 语法大师'; }
+  else if(acc >= 70){ stars = '⭐⭐'; rank = 'Keep practising 继续加油'; }
+  else { stars = '⭐'; rank = 'Need review 需要复习'; }
+
+  // 复习建议：统计错题类型
+  const typeCount = {};
+  state.wrong.forEach(w=>{ if(w.type) typeCount[w.type] = (typeCount[w.type]||0)+1; });
+  const sortedTypes = Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a]);
+
+  let html = '';
+  html += '<div class="result-head">';
+  html += '<div class="stars">' + stars + '</div>';
+  html += '<div class="rank">' + rank + '</div>';
+  html += '</div>';
+
+  html += '<div class="stat-row">';
+  html += '<div class="stat"><div class="n">' + state.score + '</div><div class="l">本关得分</div></div>';
+  html += '<div class="stat"><div class="n">' + correct + ' / ' + total + '</div><div class="l">正确题数</div></div>';
+  html += '<div class="stat"><div class="n">' + acc + '%</div><div class="l">正确率</div></div>';
+  if(!state.isRetry) html += '<div class="stat"><div class="n">🏆 ' + getHigh(state.key) + '</div><div class="l">历史最高分</div></div>';
+  html += '</div>';
+
+  // 错题列表
+  html += '<div class="section-title">📝 错题回顾</div>';
+  if(state.wrong.length === 0){
+    html += '<div class="perfect" style="font-size:18px">🎉 全部答对，太棒了！没有错题～</div>';
+  }else{
+    html += '<div class="wrong-list">';
+    state.wrong.forEach(w=>{
+      html += '<div class="wrong-item">';
+      html += '<div class="q">题目：' + esc(w.prompt) + '</div>';
+      html += '<div class="row">你的选择：<span class="your">' + esc(w.your) + '</span></div>';
+      html += '<div class="row">正确答案：<span class="cor">' + esc(w.correct) + '</span></div>';
+      html += '<div class="exp">💡 ' + esc(w.explain) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // 复习建议
+  if(sortedTypes.length > 0){
+    html += '<div class="section-title">📚 建议复习点</div>';
+    html += '<div class="suggest-box">根据这次的错题，老师建议重点复习：<ul>';
+    sortedTypes.forEach(t=>{
+      const tip = TYPE_SUGGEST[t] || t;
+      html += '<li>' + esc(tip) + '（错 ' + typeCount[t] + ' 题）</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  // 家长反馈文案
+  html += '<div class="section-title">👨‍👩‍👧 家长反馈</div>';
+  html += '<div class="parent-box">';
+  html += '<span id="parentText">' + esc(buildParentText(acc, sortedTypes, typeCount)) + '</span>';
+  html += '<div class="parent-actions"><button class="btn btn-ghost copy-btn" id="copyBtn">📋 复制</button></div>';
+  html += '</div>';
+
+  // 操作按钮
+  html += '<div class="result-actions">';
+  html += '<button class="btn btn-mint big" onclick="startGame(\\'' + state.key + '\\')">🔁 再玩一次</button>';
+  if(state.wrong.length > 0){
+    html += '<button class="btn btn-yellow big" id="retryWrongBtn">🎯 只练错题</button>';
+  }
+  // 句子拼装站的两个挑战：额外提供“回到句子拼装站”按钮
+  if(state.key === 'build_pos' || state.key === 'build_q'){
+    html += '<button class="btn btn-blue big" onclick="openBuildMenu()">🧩 回到句子拼装站</button>';
+  }
+  html += '<button class="btn btn-ghost big" onclick="goHome()">🏠 回到首页</button>';
+  html += '</div>';
+
+  document.getElementById('resultBox').innerHTML = html;
+  showScreen('result');
+
+  // 绑定“只练错题”（用原始题目对象重练）
+  const rb = document.getElementById('retryWrongBtn');
+  if(rb){
+    const retryList = state.wrongQ.slice();
+    const rk = state.key;
+    rb.onclick = ()=> startGame(rk, retryList);
+  }
+  // 复制家长反馈
+  const cb = document.getElementById('copyBtn');
+  if(cb){
+    cb.onclick = ()=>{
+      const txt = document.getElementById('parentText').textContent;
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(txt).then(()=>{ cb.textContent = '✅ 已复制'; setTimeout(()=>cb.textContent='📋 复制',1500); });
+        }else{ throw new Error('no clipboard'); }
+      }catch(e){
+        // 兜底：选中文本
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById('parentText'));
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        cb.textContent = '已选中，请手动复制';
+      }
+    };
+  }
+}
+
+/* 生成家长反馈文案 */
+function buildParentText(acc, sortedTypes, typeCount){
+  const gameName = state.cfg.title.replace(/^[^\\u4e00-\\u9fa5A-Za-z]+/, '');
+  let txt = '今天孩子完成了《现在进行时闯关》的“' + gameName + '”训练，本次得分 ' + state.score + ' 分，正确率 ' + acc + '%。';
+  if(sortedTypes.length === 0){
+    txt += '本次表现非常棒，几乎没有错误，可以尝试更有挑战的练习。';
+  }else{
+    const top = sortedTypes[0];
+    txt += '错题主要集中在“' + top + '”，' ;
+    const tip = TYPE_SUGGEST[top] || '';
+    txt += '建议课后继续复习：' + tip;
+  }
+  return txt;
+}
+
+/* 返回首页 */
+function goHome(){
+  if(state && state.timer) clearInterval(state.timer);
+  state = null;
+  renderHome();
+  showScreen('home');
+}
+
+/* ============================================================
+   5) 首页 / 拼装站选择页 / 开关
+   ============================================================ */
+
+/* 首页固定 4 张卡片：Be雷达 / ing工厂 / 句子拼装站(二选一) / 改错侦探 */
+function renderHome(){
+  const wrap = document.getElementById('cards');
+  wrap.innerHTML = '';
+
+  const cards = [
+    {gameKey:'be'},
+    {gameKey:'ing'},
+    {buildChooser:true, emoji:'🧩', cls:'c3', btn:'btn-blue',
+     title:'句子拼装站', desc:'拼句子挑战：肯定句 / 一般疑问句',
+     high:Math.max(getHigh('build_pos'), getHigh('build_q'))},
+    {gameKey:'fix'}
+  ];
+
+  cards.forEach(cd=>{
+    const g = cd.gameKey ? GAMES[cd.gameKey] : cd;
+    const title = (cd.gameKey ? g.title : cd.title).replace(/^[^\\u4e00-\\u9fa5A-Za-z]+/, '');
+    const emoji = cd.gameKey ? g.emoji : cd.emoji;
+    const desc  = cd.gameKey ? g.desc  : cd.desc;
+    const high  = cd.gameKey ? getHigh(cd.gameKey) : cd.high;
+    const card = document.createElement('div');
+    card.className = 'card ' + (cd.gameKey ? g.cls : cd.cls);
+    card.innerHTML =
+      '<div class="emoji">' + emoji + '</div>' +
+      '<h3>' + title + '</h3>' +
+      '<p>' + desc + '</p>' +
+      '<div class="high">🏆 历史最高分：' + high + '</div>' +
+      '<button class="btn ' + (cd.gameKey ? g.btn : cd.btn) + '">开始 ▶</button>';
+    card.querySelector('button').onclick = ()=>{
+      ensureAudio();
+      if(cd.buildChooser) openBuildMenu();
+      else startGame(cd.gameKey);
+    };
+    wrap.appendChild(card);
+  });
+}
+
+/* 打开“句子拼装站”选择页：肯定句 / 一般疑问句 */
+function openBuildMenu(){
+  renderBuildMenu();
+  showScreen('buildMenu');
+}
+function renderBuildMenu(){
+  const wrap = document.getElementById('buildMenuCards');
+  wrap.innerHTML = '';
+  const options = [
+    {key:'build_pos', emoji:'🧩', title:'肯定句挑战', desc:'主语 + be + 动词ing。例：He is playing football.', btn:'btn-mint'},
+    {key:'build_q',   emoji:'❓', title:'一般疑问句挑战', desc:'be + 主语 + 动词ing ? 例：Is he playing football?', btn:'btn-yellow'}
+  ];
+  options.forEach(op=>{
+    const card = document.createElement('div');
+    card.className = 'card c3';
+    card.innerHTML =
+      '<div class="emoji">' + op.emoji + '</div>' +
+      '<h3>' + op.title + '</h3>' +
+      '<p>' + op.desc + '</p>' +
+      '<div class="high">🏆 历史最高分：' + getHigh(op.key) + '</div>' +
+      '<button class="btn ' + op.btn + '">开始 ▶</button>';
+    card.querySelector('button').onclick = ()=>{ ensureAudio(); startGame(op.key); };
+    wrap.appendChild(card);
+  });
+}
+
+/* 开关绑定 */
+function initToggles(){
+  const ct = document.getElementById('classToggle');
+  const st = document.getElementById('soundToggle');
+  ct.classList.toggle('on', settings.classroom);
+  st.classList.toggle('on', settings.sound);
+  ct.onclick = ()=>{
+    settings.classroom = !settings.classroom;
+    ct.classList.toggle('on', settings.classroom);
+    saveSettings();
+  };
+  st.onclick = ()=>{
+    settings.sound = !settings.sound;
+    st.classList.toggle('on', settings.sound);
+    saveSettings();
+    if(settings.sound){ ensureAudio(); playSound('click'); }
+  };
+}
+
+/* 首次任意点击都尝试解锁音频（浏览器策略） */
+document.addEventListener('click', function unlockOnce(){
+  ensureAudio();
+}, {once:false});
+
+/* 启动 */
+loadSettings();
+initToggles();
+renderHome();
+document.body.classList.add('home-view');   // 初始即首页，启用居中布局
+<\/script>
+</body>
+</html>
+`;
+
+
         function openKetVerbModal() {
             const modal = document.getElementById('ket-verb-modal');
             const iframe = document.getElementById('ket-verb-iframe');
@@ -2977,6 +4568,13 @@ renderHome();
             const modal = document.getElementById('tense-modal');
             const iframe = document.getElementById('tense-iframe');
             iframe.srcdoc = window._tenseHtml || '';
+            modal.classList.add('show');
+        }
+
+        function openPcModal() {
+            const modal = document.getElementById('pc-modal');
+            const iframe = document.getElementById('pc-iframe');
+            iframe.srcdoc = window._pcHtml || '';
             modal.classList.add('show');
         }
 
@@ -3012,6 +4610,10 @@ renderHome();
             }
             if(id === 'tense-modal') {
                 const f = document.getElementById('tense-iframe');
+                if(f) f.srcdoc = '';
+            }
+            if(id === 'pc-modal') {
+                const f = document.getElementById('pc-iframe');
                 if(f) f.srcdoc = '';
             }
         }
@@ -4539,7 +6141,8 @@ renderHome();
     <div class="modal-overlay tool-modal" id="listen-choice-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('listen-choice-modal')">✕</button> <iframe id="listen-choice-iframe" class="tool-iframe" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="match-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('match-modal')">✕</button> <iframe id="match-iframe" class="tool-iframe" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="ket-verb-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('ket-verb-modal')">✕</button> <iframe id="ket-verb-iframe" class="tool-iframe" title="KET不规则动词消消乐" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe> </div> </div>
-    <div class="modal-overlay tool-modal" id="tense-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-modal')">✕</button> <iframe id="tense-iframe" class="tool-iframe" title="时态闯关" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="tense-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-modal')">✕</button> <iframe id="tense-iframe" class="tool-iframe" title="一般现在时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="pc-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('pc-modal')">✕</button> <iframe id="pc-iframe" class="tool-iframe" title="现在进行时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     
     <div class="modal-overlay attendance-fullscreen-modal" id="attendance-modal-container" data-attendance-theme="peach">
         <div class="attendance-shell" role="dialog" aria-modal="true" aria-label="排课与签到">
