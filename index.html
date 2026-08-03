@@ -309,7 +309,7 @@ async function syncCurrentClassToCloud() {
             localStorage.setItem('englishCurrentClassId',currentClassId);
             if(isCloudMode) scheduleCloudSync();
         }
-        }
+    
         function saveData(){ saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); }
         function updateClassTitle(){ document.getElementById('header-title').innerText=getCurrentClass().name; }
         function saveStateToHistory(){ let cls=getCurrentClass(); historyStack.push({classId:currentClassId,students:JSON.parse(JSON.stringify(cls.students)),logs:JSON.parse(JSON.stringify(cls.logs))}); if(historyStack.length>50) historyStack.shift(); }
