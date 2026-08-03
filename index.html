@@ -236,7 +236,8 @@
             const ok = writeLocalVocabulary(kind, data);
             if (ok && isCloudMode && cloudUser && supabaseClient) syncVocabularyToCloud();
             return ok;
-                async function syncCurrentClassToCloud() {
+                        }
+async function syncCurrentClassToCloud() {
             if(!supabaseClient||!isCloudMode||!cloudUser) return true;
             cloudSyncInFlight = true;
             const classId = currentClassId;
