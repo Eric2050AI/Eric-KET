@@ -21,6 +21,8 @@
         let numpadValue = "0", numpadTargetId = null, isBatchMode = false, batchScore = 0;
                 let syncTimer = null;
         let syncPromise = Promise.resolve();
+        let pendingSyncClassId = null;
+        let pendingSyncSnapshot = null;
         let cloudUpdatedAtByClass = {};
         let cloudSyncInFlight = false;
         let audioCtx = null;
@@ -237,11 +239,12 @@
             if (ok && isCloudMode && cloudUser && supabaseClient) syncVocabularyToCloud();
             return ok;
                         }
-async function syncCurrentClassToCloud() {
+async function syncCurrentClassToCloud(classId = currentClassId, classSnapshot = null) {
             if(!supabaseClient||!isCloudMode||!cloudUser) return true;
             cloudSyncInFlight = true;
-            const classId = currentClassId;
-            const cls = JSON.parse(JSON.stringify(getCurrentClass()));
+            const cls = classSnapshot
+                ? JSON.parse(JSON.stringify(classSnapshot))
+                : JSON.parse(JSON.stringify(allClasses[classId] || getCurrentClass()));
             const baseUpdatedAt = cloudUpdatedAtByClass[classId] || null;
             const updatedAt = new Date().toISOString();
             const payload = { user_id:cloudUser.id, class_id:classId, class_name:cls.name, students:cls.students||[], logs:cls.logs||[], updated_at:updatedAt };
@@ -280,12 +283,24 @@ async function syncCurrentClassToCloud() {
                 cloudSyncInFlight = false;
             }
         }
-                function scheduleCloudSync() {
+        function queueCloudSync(classId = currentClassId, classSnapshot = null) {
+            if(!isCloudMode || !supabaseClient || !cloudUser) return syncPromise;
+            const task = () => syncCurrentClassToCloud(classId, classSnapshot);
+            syncPromise = syncPromise.then(task, task);
+            return syncPromise;
+        }
+        function scheduleCloudSync() {
             if(!isCloudMode || !supabaseClient || !cloudUser) return syncPromise;
             if(syncTimer) clearTimeout(syncTimer);
+            pendingSyncClassId = currentClassId;
+            pendingSyncSnapshot = JSON.parse(JSON.stringify(getCurrentClass()));
             syncTimer = setTimeout(() => {
                 syncTimer = null;
-                syncPromise = syncPromise.then(syncCurrentClassToCloud, syncCurrentClassToCloud);
+                const classId = pendingSyncClassId;
+                const classSnapshot = pendingSyncSnapshot;
+                pendingSyncClassId = null;
+                pendingSyncSnapshot = null;
+                if(classId && classSnapshot) queueCloudSync(classId, classSnapshot);
             }, 600);
             return syncPromise;
         }
@@ -294,12 +309,20 @@ async function syncCurrentClassToCloud() {
             if(syncTimer) {
                 clearTimeout(syncTimer);
                 syncTimer = null;
-                syncPromise = syncPromise.then(syncCurrentClassToCloud, syncCurrentClassToCloud);
+                const classId = pendingSyncClassId;
+                const classSnapshot = pendingSyncSnapshot;
+                pendingSyncClassId = null;
+                pendingSyncSnapshot = null;
+                if(classId && classSnapshot) queueCloudSync(classId, classSnapshot);
             }
             return syncPromise;
         }
+        window.addEventListener('visibilitychange', function() {
+            if(document.visibilityState === 'hidden' && isCloudMode) flushCloudSync();
+        });
         window.addEventListener('beforeunload', function(event) {
             if(isCloudMode && (syncTimer || cloudSyncInFlight)) {
+                flushCloudSync();
                 event.preventDefault();
                 event.returnValue = '';
             }
@@ -463,7 +486,7 @@ async function syncCurrentClassToCloud() {
         function openClassModal(){ renderClassList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
-        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); }catch(e){} }
+        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode && syncTimer) flushCloudSync(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); }catch(e){} }
         function renameClass(id){ let cls=allClasses[id]; let name=prompt('新名称',cls.name); if(name&&name.trim()){ cls.name=name.trim(); saveAllClasses(); updateClassTitle(); renderClassList(); } }
         async function deleteClass(id){ const cls = allClasses[id]; if(!cls) return; if(!confirm(`⚠ 确定要删除班级「${cls.name}」吗？\n班级内 ${cls.students.length} 名学生数据将全部删除，不可恢复！`)) return; if (currentClassId === id) { const otherIds = Object.keys(allClasses).filter(k => k !== id); if (otherIds.length > 0) { currentClassId = otherIds[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } } delete allClasses[id]; historyStack = []; saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); if (isCloudMode) { markClassAsDeleted(id); try { await deleteClassFromCloud(id); clearDeleteMark(id); updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); } } }
         
