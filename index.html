@@ -19,7 +19,10 @@
         let historyStack = [];
         let showTop5Only = false;
         let numpadValue = "0", numpadTargetId = null, isBatchMode = false, batchScore = 0;
-        let syncTimer = null;
+                let syncTimer = null;
+        let syncPromise = Promise.resolve();
+        let cloudUpdatedAtByClass = {};
+        let cloudSyncInFlight = false;
         let audioCtx = null;
         let deletedClassIds = [];
         const VOCAB_CLOUD_CLASS_ID = '__cloud_vocabulary__';
@@ -233,17 +236,78 @@
             const ok = writeLocalVocabulary(kind, data);
             if (ok && isCloudMode && cloudUser && supabaseClient) syncVocabularyToCloud();
             return ok;
+                async function syncCurrentClassToCloud() {
+            if(!supabaseClient||!isCloudMode||!cloudUser) return true;
+            cloudSyncInFlight = true;
+            const classId = currentClassId;
+            const cls = JSON.parse(JSON.stringify(getCurrentClass()));
+            const baseUpdatedAt = cloudUpdatedAtByClass[classId] || null;
+            const updatedAt = new Date().toISOString();
+            const payload = { user_id:cloudUser.id, class_id:classId, class_name:cls.name, students:cls.students||[], logs:cls.logs||[], updated_at:updatedAt };
+            try {
+                updateSyncStatus('pending');
+                let data, error;
+                if (baseUpdatedAt) {
+                    ({ data, error } = await supabaseClient.from('class_data')
+                        .update(payload)
+                        .eq('user_id', cloudUser.id)
+                        .eq('class_id', classId)
+                        .eq('updated_at', baseUpdatedAt)
+                        .select('updated_at')
+                        .maybeSingle());
+                    if (error) throw error;
+                    if (!data) {
+                        console.warn('Cloud sync conflict: remote class changed after it was loaded.');
+                        updateSyncStatus('conflict');
+                        return false;
+                    }
+                } else {
+                    ({ data, error } = await supabaseClient.from('class_data')
+                        .insert(payload)
+                        .select('updated_at')
+                        .maybeSingle());
+                    if (error) throw error;
+                }
+                cloudUpdatedAtByClass[classId] = data?.updated_at || updatedAt;
+                updateSyncStatus('ok');
+                return true;
+            } catch(e) {
+                console.error('Cloud sync failed:', e);
+                updateSyncStatus('error');
+                return false;
+            } finally {
+                cloudSyncInFlight = false;
+            }
         }
-        async function syncCurrentClassToCloud() {
-            if(!supabaseClient||!isCloudMode||!cloudUser) return;
-            try { updateSyncStatus('pending'); let cls=getCurrentClass();
-                await supabaseClient.from('class_data').upsert({ user_id:cloudUser.id, class_id:currentClassId, class_name:cls.name, students:cls.students||[], logs:cls.logs||[], updated_at:new Date().toISOString() },{onConflict:'user_id,class_id'});
-                updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); }
+                function scheduleCloudSync() {
+            if(!isCloudMode || !supabaseClient || !cloudUser) return syncPromise;
+            if(syncTimer) clearTimeout(syncTimer);
+            syncTimer = setTimeout(() => {
+                syncTimer = null;
+                syncPromise = syncPromise.then(syncCurrentClassToCloud, syncCurrentClassToCloud);
+            }, 600);
+            return syncPromise;
         }
+        function flushCloudSync() {
+            if(!isCloudMode || !supabaseClient || !cloudUser) return Promise.resolve(true);
+            if(syncTimer) {
+                clearTimeout(syncTimer);
+                syncTimer = null;
+                syncPromise = syncPromise.then(syncCurrentClassToCloud, syncCurrentClassToCloud);
+            }
+            return syncPromise;
+        }
+        window.addEventListener('beforeunload', function(event) {
+            if(isCloudMode && (syncTimer || cloudSyncInFlight)) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
         function saveAllClasses() {
             localStorage.setItem('englishAllClasses',JSON.stringify(allClasses));
             localStorage.setItem('englishCurrentClassId',currentClassId);
-            if(isCloudMode) { if(syncTimer) clearTimeout(syncTimer); syncTimer=setTimeout(syncCurrentClassToCloud,600); }
+            if(isCloudMode) scheduleCloudSync();
+        }
         }
         function saveData(){ saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); }
         function updateClassTitle(){ document.getElementById('header-title').innerText=getCurrentClass().name; }
@@ -354,8 +418,8 @@
         async function loadCloudData(){
             if(!supabaseClient||!isCloudMode||!cloudUser) return;
             try{ updateSyncStatus('pending'); let {data,error}=await supabaseClient.from('class_data').select('*').eq('user_id',cloudUser.id);
-                if(error){ updateSyncStatus('error'); return; }
-                loadDeletedClassIds(); allClasses = {}; let foundVocabulary = false;
+                                cloudUpdatedAtByClass = {}; loadDeletedClassIds(); allClasses = {}; let foundVocabulary = false;
+                                if(data&&data.length){ data.forEach(r=>{ cloudUpdatedAtByClass[r.class_id] = r.updated_at || null; if (r.class_id === VOCAB_CLOUD_CLASS_ID) { foundVocabulary = true; applyVocabularyPayload(extractVocabularyPayload(r)); return; } if (deletedClassIds.includes(r.class_id)) { deleteClassFromCloud(r.class_id); return; } allClasses[r.class_id]={name:r.class_name,students:r.students||[],logs:r.logs||[]}; }); }
                 if(data&&data.length){ data.forEach(r=>{ if (r.class_id === VOCAB_CLOUD_CLASS_ID) { foundVocabulary = true; applyVocabularyPayload(extractVocabularyPayload(r)); return; } if (deletedClassIds.includes(r.class_id)) { deleteClassFromCloud(r.class_id); return; } allClasses[r.class_id]={name:r.class_name,students:r.students||[],logs:r.logs||[]}; }); }
                 if (Object.keys(allClasses).length === 0) { let id = 'class_' + Date.now(); allClasses[id] = { name: '默认班级', students: [], logs: [] }; }
                 if (!allClasses[currentClassId]) currentClassId = Object.keys(allClasses)[0];
