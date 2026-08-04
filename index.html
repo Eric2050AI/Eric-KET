@@ -19,12 +19,7 @@
         let historyStack = [];
         let showTop5Only = false;
         let numpadValue = "0", numpadTargetId = null, isBatchMode = false, batchScore = 0;
-                let syncTimer = null;
-        let syncPromise = Promise.resolve();
-        let pendingSyncClassId = null;
-        let pendingSyncSnapshot = null;
-        let cloudUpdatedAtByClass = {};
-        let cloudSyncInFlight = false;
+        let syncTimer = null;
         let audioCtx = null;
         let deletedClassIds = [];
         const VOCAB_CLOUD_CLASS_ID = '__cloud_vocabulary__';
@@ -238,101 +233,18 @@
             const ok = writeLocalVocabulary(kind, data);
             if (ok && isCloudMode && cloudUser && supabaseClient) syncVocabularyToCloud();
             return ok;
-                        }
-async function syncCurrentClassToCloud(classId = currentClassId, classSnapshot = null) {
-            if(!supabaseClient||!isCloudMode||!cloudUser) return true;
-            cloudSyncInFlight = true;
-            const cls = classSnapshot
-                ? JSON.parse(JSON.stringify(classSnapshot))
-                : JSON.parse(JSON.stringify(allClasses[classId] || getCurrentClass()));
-            const baseUpdatedAt = cloudUpdatedAtByClass[classId] || null;
-            const updatedAt = new Date().toISOString();
-            const payload = { user_id:cloudUser.id, class_id:classId, class_name:cls.name, students:cls.students||[], logs:cls.logs||[], updated_at:updatedAt };
-            try {
-                updateSyncStatus('pending');
-                let data, error;
-                if (baseUpdatedAt) {
-                    ({ data, error } = await supabaseClient.from('class_data')
-                        .update(payload)
-                        .eq('user_id', cloudUser.id)
-                        .eq('class_id', classId)
-                        .eq('updated_at', baseUpdatedAt)
-                        .select('updated_at')
-                        .maybeSingle());
-                    if (error) throw error;
-                    if (!data) {
-                        console.warn('Cloud sync conflict: remote class changed after it was loaded.');
-                        updateSyncStatus('conflict');
-                        return false;
-                    }
-                } else {
-                    ({ data, error } = await supabaseClient.from('class_data')
-                        .insert(payload)
-                        .select('updated_at')
-                        .maybeSingle());
-                    if (error) throw error;
-                }
-                cloudUpdatedAtByClass[classId] = data?.updated_at || updatedAt;
-                updateSyncStatus('ok');
-                return true;
-            } catch(e) {
-                console.error('Cloud sync failed:', e);
-                updateSyncStatus('error');
-                return false;
-            } finally {
-                cloudSyncInFlight = false;
-            }
         }
-        function queueCloudSync(classId = currentClassId, classSnapshot = null) {
-            if(!isCloudMode || !supabaseClient || !cloudUser) return syncPromise;
-            const task = () => syncCurrentClassToCloud(classId, classSnapshot);
-            syncPromise = syncPromise.then(task, task);
-            return syncPromise;
+        async function syncCurrentClassToCloud() {
+            if(!supabaseClient||!isCloudMode||!cloudUser) return;
+            try { updateSyncStatus('pending'); let cls=getCurrentClass();
+                await supabaseClient.from('class_data').upsert({ user_id:cloudUser.id, class_id:currentClassId, class_name:cls.name, students:cls.students||[], logs:cls.logs||[], updated_at:new Date().toISOString() },{onConflict:'user_id,class_id'});
+                updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); }
         }
-        function scheduleCloudSync() {
-            if(!isCloudMode || !supabaseClient || !cloudUser) return syncPromise;
-            if(syncTimer) clearTimeout(syncTimer);
-            pendingSyncClassId = currentClassId;
-            pendingSyncSnapshot = JSON.parse(JSON.stringify(getCurrentClass()));
-            syncTimer = setTimeout(() => {
-                syncTimer = null;
-                const classId = pendingSyncClassId;
-                const classSnapshot = pendingSyncSnapshot;
-                pendingSyncClassId = null;
-                pendingSyncSnapshot = null;
-                if(classId && classSnapshot) queueCloudSync(classId, classSnapshot);
-            }, 600);
-            return syncPromise;
-        }
-        function flushCloudSync() {
-            if(!isCloudMode || !supabaseClient || !cloudUser) return Promise.resolve(true);
-            if(syncTimer) {
-                clearTimeout(syncTimer);
-                syncTimer = null;
-                const classId = pendingSyncClassId;
-                const classSnapshot = pendingSyncSnapshot;
-                pendingSyncClassId = null;
-                pendingSyncSnapshot = null;
-                if(classId && classSnapshot) queueCloudSync(classId, classSnapshot);
-            }
-            return syncPromise;
-        }
-        window.addEventListener('visibilitychange', function() {
-            if(document.visibilityState === 'hidden' && isCloudMode) flushCloudSync();
-        });
-        window.addEventListener('beforeunload', function(event) {
-            if(isCloudMode && (syncTimer || cloudSyncInFlight)) {
-                flushCloudSync();
-                event.preventDefault();
-                event.returnValue = '';
-            }
-        });
         function saveAllClasses() {
             localStorage.setItem('englishAllClasses',JSON.stringify(allClasses));
             localStorage.setItem('englishCurrentClassId',currentClassId);
-            if(isCloudMode) scheduleCloudSync();
+            if(isCloudMode) { if(syncTimer) clearTimeout(syncTimer); syncTimer=setTimeout(syncCurrentClassToCloud,600); }
         }
-    
         function saveData(){ saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); }
         function updateClassTitle(){ document.getElementById('header-title').innerText=getCurrentClass().name; }
         function saveStateToHistory(){ let cls=getCurrentClass(); historyStack.push({classId:currentClassId,students:JSON.parse(JSON.stringify(cls.students)),logs:JSON.parse(JSON.stringify(cls.logs))}); if(historyStack.length>50) historyStack.shift(); }
@@ -442,8 +354,8 @@ async function syncCurrentClassToCloud(classId = currentClassId, classSnapshot =
         async function loadCloudData(){
             if(!supabaseClient||!isCloudMode||!cloudUser) return;
             try{ updateSyncStatus('pending'); let {data,error}=await supabaseClient.from('class_data').select('*').eq('user_id',cloudUser.id);
-                                cloudUpdatedAtByClass = {}; loadDeletedClassIds(); allClasses = {}; let foundVocabulary = false;
-                                if(data&&data.length){ data.forEach(r=>{ cloudUpdatedAtByClass[r.class_id] = r.updated_at || null; if (r.class_id === VOCAB_CLOUD_CLASS_ID) { foundVocabulary = true; applyVocabularyPayload(extractVocabularyPayload(r)); return; } if (deletedClassIds.includes(r.class_id)) { deleteClassFromCloud(r.class_id); return; } allClasses[r.class_id]={name:r.class_name,students:r.students||[],logs:r.logs||[]}; }); }
+                if(error){ updateSyncStatus('error'); return; }
+                loadDeletedClassIds(); allClasses = {}; let foundVocabulary = false;
                 if(data&&data.length){ data.forEach(r=>{ if (r.class_id === VOCAB_CLOUD_CLASS_ID) { foundVocabulary = true; applyVocabularyPayload(extractVocabularyPayload(r)); return; } if (deletedClassIds.includes(r.class_id)) { deleteClassFromCloud(r.class_id); return; } allClasses[r.class_id]={name:r.class_name,students:r.students||[],logs:r.logs||[]}; }); }
                 if (Object.keys(allClasses).length === 0) { let id = 'class_' + Date.now(); allClasses[id] = { name: '默认班级', students: [], logs: [] }; }
                 if (!allClasses[currentClassId]) currentClassId = Object.keys(allClasses)[0];
@@ -486,7 +398,7 @@ async function syncCurrentClassToCloud(classId = currentClassId, classSnapshot =
         function openClassModal(){ renderClassList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
-        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode && syncTimer) flushCloudSync(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); }catch(e){} }
+        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); }catch(e){} }
         function renameClass(id){ let cls=allClasses[id]; let name=prompt('新名称',cls.name); if(name&&name.trim()){ cls.name=name.trim(); saveAllClasses(); updateClassTitle(); renderClassList(); } }
         async function deleteClass(id){ const cls = allClasses[id]; if(!cls) return; if(!confirm(`⚠ 确定要删除班级「${cls.name}」吗？\n班级内 ${cls.students.length} 名学生数据将全部删除，不可恢复！`)) return; if (currentClassId === id) { const otherIds = Object.keys(allClasses).filter(k => k !== id); if (otherIds.length > 0) { currentClassId = otherIds[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } } delete allClasses[id]; historyStack = []; saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); if (isCloudMode) { markClassAsDeleted(id); try { await deleteClassFromCloud(id); clearDeleteMark(id); updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); } } }
         
@@ -3711,6 +3623,24 @@ const BUILD_Q_BANK = [
      options:[3个修改选项], correct:正确选项,
      correctSentence:正确整句, explain:讲解, type:错误类型
    } */
+/* 句子拼装站（三）——现在进行时特殊疑问句基础题库
+   只训练一个核心结构：疑问词 + be + 主语 + 动词-ing
+   本阶段暂不加入 Who 作主语、Why、介词后置等特殊结构，避免混淆语序。 */
+const BUILD_WH_BANK = [
+  {cn:'他正在做什么？', answer:['What','is','he','doing'], end:'?', blocks:['What','is','he','doing','Are','he','do'], explain:'特殊疑问句的基础语序是：疑问词 + be + 主语 + 动词-ing。'},
+  {cn:'她正在读什么？', answer:['What','is','she','reading'], end:'?', blocks:['What','is','she','reading','Are','she','read'], explain:'What 后面先放 is，再放主语 she，最后放动词-ing reading。'},
+  {cn:'他们正在做什么？', answer:['What','are','they','doing'], end:'?', blocks:['What','are','they','doing','Is','they','do'], explain:'疑问词 What 放在最前面，后面是 are + they + doing。'},
+  {cn:'男孩正在踢什么？', answer:['What','is','the boy','kicking'], end:'?', blocks:['What','is','the boy','kicking','Are','the boy','kick'], explain:'正确顺序是 What + is + the boy + kicking。'},
+  {cn:'她正在吃什么？', answer:['What','is','she','eating'], end:'?', blocks:['What','is','she','eating','Are','she','eat'], explain:'记住四个位置：What + is + she + eating。'},
+  {cn:'他们正在看什么？', answer:['What','are','they','watching'], end:'?', blocks:['What','are','they','watching','Is','they','watch'], explain:'What 放句首，are 放在主语 they 前面，watch 要变成 watching。'},
+  {cn:'他正在读什么？', answer:['What','is','Tom','reading'], end:'?', blocks:['What','is','Tom','reading','Are','Tom','read'], explain:'Tom 是主语，前面要用 is。'},
+  {cn:'孩子们正在唱什么？', answer:['What','are','the children','singing'], end:'?', blocks:['What','are','the children','singing','Is','the children','sing'], explain:'the children 是复数主语，所以用 are。'},
+  {cn:'猫正在追什么？', answer:['What','is','the cat','chasing'], end:'?', blocks:['What','is','the cat','chasing','Are','the cat','chase'], explain:'不要把主语 the cat 放到 is 前面。'},
+  {cn:'你正在写什么？', answer:['What','are','you','writing'], end:'?', blocks:['What','are','you','writing','Is','you','write'], explain:'you 后面用 are，最后用 writing。'},
+  {cn:'我们正在喝什么？', answer:['What','are','we','drinking'], end:'?', blocks:['What','are','we','drinking','Is','we','drink'], explain:'疑问词后面先放 are，再放主语 we，最后放 drinking。'},
+  {cn:'女孩正在画什么？', answer:['What','is','the girl','drawing'], end:'?', blocks:['What','is','the girl','drawing','Are','the girl','draw'], explain:'正确结构是 What + is + the girl + drawing。'}
+];
+
 const FIX_BANK = [
   {words:['He','playing','football'], errorIndex:1, fixType:'insert',
    options:['is','are','am'], correct:'is',
@@ -3932,8 +3862,8 @@ function buildRender(q){
   setMeta({
     prompt: q.cn,
     correctDisplay: q.answer.join(' ') + end,
-    explain: '现在进行时要有 be 动词、动词变 ing，句末别忘了标点。肯定句：主语+be+doing；一般疑问句：be+主语+doing?',
-    type: '句型结构'
+    explain: q.explain || '现在进行时要有 be 动词、动词变 ing，句末别忘了标点。肯定句：主语+be+doing；一般疑问句：be+主语+doing?',
+    type: q.type || '句型结构'
   });
   const stage = document.getElementById('stage');
   stage.innerHTML =
@@ -4099,6 +4029,16 @@ const GAMES = {
     count:15, time:15, correctScore:15,
     build(){
       return shuffle(BUILD_Q_BANK).slice(0, Math.min(this.count, BUILD_Q_BANK.length));
+    },
+    render: buildRender
+  },
+
+  build_wh: {
+    key:'build_wh', title:'❓ 句子拼装站 · 特殊疑问句', emoji:'❓', cls:'c3', btn:'btn-purple',
+    desc:'疑问词 + be + 主语 + 动词ing。例：What is he doing?',
+    count:12, time:18, correctScore:15,
+    build(){
+      return shuffle(BUILD_WH_BANK).slice(0, Math.min(this.count, BUILD_WH_BANK.length));
     },
     render: buildRender
   },
@@ -4556,8 +4496,8 @@ function renderHome(){
     {gameKey:'be'},
     {gameKey:'ing'},
     {buildChooser:true, emoji:'🧩', cls:'c3', btn:'btn-blue',
-     title:'句子拼装站', desc:'拼句子挑战：肯定句 / 一般疑问句',
-     high:Math.max(getHigh('build_pos'), getHigh('build_q'))},
+     title:'句子拼装站', desc:'拼句子挑战：肯定句 / 一般疑问句 / 特殊疑问句',
+     high:Math.max(getHigh('build_pos'), getHigh('build_q'), getHigh('build_wh'))},
     {gameKey:'fix'}
   ];
 
@@ -4594,7 +4534,8 @@ function renderBuildMenu(){
   wrap.innerHTML = '';
   const options = [
     {key:'build_pos', emoji:'🧩', title:'肯定句挑战', desc:'主语 + be + 动词ing。例：He is playing football.', btn:'btn-mint'},
-    {key:'build_q',   emoji:'❓', title:'一般疑问句挑战', desc:'be + 主语 + 动词ing ? 例：Is he playing football?', btn:'btn-yellow'}
+    {key:'build_q',   emoji:'❓', title:'一般疑问句挑战', desc:'be + 主语 + 动词ing ? 例：Is he playing football?', btn:'btn-yellow'},
+    {key:'build_wh',  emoji:'❓', title:'特殊疑问句挑战', desc:'疑问词 + be + 主语 + 动词ing。例：What is he doing?', btn:'btn-purple'}
   ];
   options.forEach(op=>{
     const card = document.createElement('div');
@@ -5547,6 +5488,460 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             document.getElementById('match-modal').classList.add('show');
             try { iframe.contentWindow.postMessage({ type: 'matchgame:refresh' }, '*'); } catch(e) {}
         }
+
+        /* ==================== review hardening ====================
+           Keep local edits safe while cloud data is loading or syncing.
+           This block intentionally stays in the single HTML file so the
+           classroom page remains usable offline. */
+        let reviewLocalRevision = 0;
+        let reviewSyncChain = Promise.resolve();
+        let reviewCloudLoadToken = 0;
+        let reviewSyncMeta = {};
+        let reviewClockStarted = false;
+        let reviewAttendanceRevision = 0;
+        let reviewAttendanceLoadToken = 0;
+        let reviewAttendanceSyncChain = Promise.resolve();
+        const REVIEW_SYNC_META_KEY = 'englishClassSyncMeta';
+        const REVIEW_ATTENDANCE_DIRTY_KEY = 'attendanceDataDirty';
+
+        function reviewClone(value) {
+            try { return JSON.parse(JSON.stringify(value)); } catch (e) { return value; }
+        }
+
+        function reviewLoadSyncMeta() {
+            try {
+                const raw = JSON.parse(localStorage.getItem(REVIEW_SYNC_META_KEY) || '{}');
+                reviewSyncMeta = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+            } catch (e) { reviewSyncMeta = {}; }
+        }
+
+        function reviewSaveSyncMeta() {
+            try { localStorage.setItem(REVIEW_SYNC_META_KEY, JSON.stringify(reviewSyncMeta)); } catch (e) {}
+        }
+
+        function reviewNormalizeStudent(student) {
+            const item = student && typeof student === 'object' ? student : {};
+            const numericScore = Number(item.score);
+            return Object.assign({}, item, {
+                id: String(item.id || ('stu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7))),
+                name: String(item.name || '未命名学生'),
+                avatar: String(item.avatar || '🐱'),
+                score: Number.isFinite(numericScore) ? numericScore : 0
+            });
+        }
+
+        function reviewNormalizeClass(cls, fallbackName) {
+            const item = cls && typeof cls === 'object' ? cls : {};
+            return {
+                name: String(item.name || fallbackName || '未命名班级'),
+                students: Array.isArray(item.students) ? item.students.map(reviewNormalizeStudent) : [],
+                logs: Array.isArray(item.logs) ? item.logs : []
+            };
+        }
+
+        function reviewNormalizeAllClasses() {
+            const normalized = {};
+            if (allClasses && typeof allClasses === 'object' && !Array.isArray(allClasses)) {
+                Object.keys(allClasses).forEach(id => { normalized[String(id)] = reviewNormalizeClass(allClasses[id]); });
+            }
+            allClasses = normalized;
+            if (!Object.keys(allClasses).length) {
+                const id = 'class_' + Date.now();
+                allClasses[id] = reviewNormalizeClass({ name: '未命名班级' });
+            }
+            if (!currentClassId || !allClasses[currentClassId]) currentClassId = Object.keys(allClasses)[0];
+        }
+
+        function reviewMarkLocalChange(classId) {
+            if (!classId) return;
+            reviewSyncMeta[classId] = Object.assign({}, reviewSyncMeta[classId], {
+                dirty: true,
+                localRevision: reviewLocalRevision,
+                localUpdatedAt: Date.now()
+            });
+            reviewSaveSyncMeta();
+        }
+
+        function reviewScheduleCloudSync() {
+            if (!isCloudMode || !cloudUser || !supabaseClient) return;
+            if (syncTimer) clearTimeout(syncTimer);
+            syncTimer = setTimeout(() => {
+                syncTimer = null;
+                syncCurrentClassToCloud(currentClassId, reviewLocalRevision);
+            }, 650);
+            updateSyncStatus('pending');
+        }
+
+        function loadAllClassesFromStorage() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('englishAllClasses') || '{}');
+                allClasses = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+            } catch (e) { allClasses = {}; }
+            currentClassId = localStorage.getItem('englishCurrentClassId') || null;
+            reviewNormalizeAllClasses();
+        }
+
+        function saveAllClasses() {
+            reviewNormalizeAllClasses();
+            reviewLocalRevision++;
+            localStorage.setItem('englishAllClasses', JSON.stringify(allClasses));
+            localStorage.setItem('englishCurrentClassId', currentClassId);
+            reviewMarkLocalChange(currentClassId);
+            reviewScheduleCloudSync();
+        }
+
+        async function syncCurrentClassToCloud(classId, revision) {
+            if (!supabaseClient || !isCloudMode || !cloudUser) return false;
+            const targetClassId = classId || currentClassId;
+            const targetClass = allClasses[targetClassId];
+            if (!targetClass) return false;
+            const targetRevision = Number.isFinite(revision) ? revision : reviewLocalRevision;
+            const snapshot = reviewClone(reviewNormalizeClass(targetClass));
+            const payload = {
+                user_id: cloudUser.id,
+                class_id: targetClassId,
+                class_name: snapshot.name,
+                students: snapshot.students,
+                logs: snapshot.logs,
+                updated_at: new Date().toISOString()
+            };
+            const run = async () => {
+                try {
+                    updateSyncStatus('pending');
+                    const result = await supabaseClient.from('class_data').upsert(payload, { onConflict: 'user_id,class_id' });
+                    if (result && result.error) throw result.error;
+                    const meta = reviewSyncMeta[targetClassId];
+                    if (meta && meta.localRevision === targetRevision) {
+                        reviewSyncMeta[targetClassId] = Object.assign({}, meta, {
+                            dirty: false,
+                            serverUpdatedAt: Date.now()
+                        });
+                        reviewSaveSyncMeta();
+                    }
+                    if (targetRevision === reviewLocalRevision && !syncTimer) updateSyncStatus('ok');
+                    return true;
+                } catch (e) {
+                    console.warn('Class cloud sync failed:', e);
+                    updateSyncStatus('error');
+                    return false;
+                }
+            };
+            reviewSyncChain = reviewSyncChain.catch(() => false).then(run);
+            return reviewSyncChain;
+        }
+
+        async function reviewFlushCloudSave() {
+            if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+            return syncCurrentClassToCloud(currentClassId, reviewLocalRevision);
+        }
+
+        async function attendanceLoadCloud() {
+            if (!supabaseClient || !isCloudMode || !cloudUser) return false;
+            const loadToken = ++reviewAttendanceLoadToken;
+            const revisionAtStart = reviewAttendanceRevision;
+            try {
+                attendanceSetCloudLabel('正在加载云端签到数据...');
+                const result = await supabaseClient.from('attendance_data').select('*').eq('user_id', cloudUser.id).single();
+                if (result && result.error && result.error.code !== 'PGRST116') throw result.error;
+                if (loadToken !== reviewAttendanceLoadToken || revisionAtStart !== reviewAttendanceRevision || localStorage.getItem(REVIEW_ATTENDANCE_DIRTY_KEY) === '1') {
+                    attendanceSetCloudLabel('本地签到有未同步修改，已保留本地数据', 'error');
+                    attendanceSyncCloud();
+                    return false;
+                }
+                if (result.data && result.data.payload) {
+                    const payload = typeof result.data.payload === 'string' ? JSON.parse(result.data.payload) : result.data.payload;
+                    attendanceState.schedules = Array.isArray(payload.schedules) ? payload.schedules : [];
+                    attendanceState.attendance = Array.isArray(payload.attendance) ? payload.attendance : [];
+                    attendancePruneData();
+                    localStorage.setItem(attendanceStorageKeys.schedules, JSON.stringify(attendanceState.schedules));
+                    localStorage.setItem(attendanceStorageKeys.attendance, JSON.stringify(attendanceState.attendance));
+                    attendanceState.loadedFromCloud = true;
+                    attendanceSetCloudLabel();
+                    return true;
+                }
+                attendanceSetCloudLabel('云端暂无签到数据，已使用本地缓存');
+                return false;
+            } catch (e) {
+                console.warn('Attendance cloud load failed:', e);
+                attendanceSetCloudLabel('签到云端加载失败，已使用本地缓存', 'error');
+                return false;
+            }
+        }
+
+        function attendanceSaveData() {
+            attendancePruneData();
+            reviewAttendanceRevision++;
+            localStorage.setItem(attendanceStorageKeys.schedules, JSON.stringify(attendanceState.schedules));
+            localStorage.setItem(attendanceStorageKeys.attendance, JSON.stringify(attendanceState.attendance));
+            localStorage.setItem(REVIEW_ATTENDANCE_DIRTY_KEY, '1');
+            if (isCloudMode && cloudUser && supabaseClient) {
+                if (attendanceState.syncTimer) clearTimeout(attendanceState.syncTimer);
+                attendanceState.syncTimer = setTimeout(() => { attendanceState.syncTimer = null; attendanceSyncCloud(); }, 650);
+            }
+        }
+
+        async function attendanceSyncCloud() {
+            if (!supabaseClient || !isCloudMode || !cloudUser) return false;
+            const revision = reviewAttendanceRevision;
+            const payload = {
+                classes: reviewClone(attendanceGetClasses()),
+                schedules: reviewClone(attendanceState.schedules),
+                attendance: reviewClone(attendanceState.attendance),
+                updated_at: new Date().toISOString()
+            };
+            const run = async () => {
+                try {
+                    attendanceSetCloudLabel('正在同步签到数据...');
+                    const result = await supabaseClient.from('attendance_data').upsert({
+                        user_id: cloudUser.id,
+                        payload,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'user_id' });
+                    if (result && result.error) throw result.error;
+                    if (revision === reviewAttendanceRevision) localStorage.setItem(REVIEW_ATTENDANCE_DIRTY_KEY, '0');
+                    attendanceSetCloudLabel();
+                    return true;
+                } catch (e) {
+                    console.warn('Attendance cloud sync failed:', e);
+                    attendanceSetCloudLabel('签到云端同步失败，本地数据已保存', 'error');
+                    return false;
+                }
+            };
+            reviewAttendanceSyncChain = reviewAttendanceSyncChain.catch(() => false).then(run);
+            return reviewAttendanceSyncChain;
+        }
+
+        async function loadCloudData() {
+            if (!supabaseClient || !isCloudMode || !cloudUser) return false;
+            const loadToken = ++reviewCloudLoadToken;
+            const revisionAtStart = reviewLocalRevision;
+            try {
+                updateSyncStatus('pending');
+                const result = await supabaseClient.from('class_data').select('*').eq('user_id', cloudUser.id);
+                if (result && result.error) throw result.error;
+                if (loadToken !== reviewCloudLoadToken || revisionAtStart !== reviewLocalRevision) {
+                    updateSyncStatus('pending');
+                    reviewFlushCloudSave();
+                    return false;
+                }
+                loadDeletedClassIds();
+                const localClasses = reviewClone(allClasses);
+                const merged = {};
+                let foundVocabulary = false;
+                (result.data || []).forEach(row => {
+                    if (row.class_id === VOCAB_CLOUD_CLASS_ID) {
+                        foundVocabulary = true;
+                        applyVocabularyPayload(extractVocabularyPayload(row));
+                        return;
+                    }
+                    if (deletedClassIds.includes(row.class_id)) return;
+                    const meta = reviewSyncMeta[row.class_id];
+                    if (meta && meta.dirty && localClasses[row.class_id]) {
+                        merged[row.class_id] = reviewNormalizeClass(localClasses[row.class_id], row.class_name);
+                    } else {
+                        merged[row.class_id] = reviewNormalizeClass({
+                            name: row.class_name,
+                            students: row.students,
+                            logs: row.logs
+                        }, row.class_name);
+                    }
+                });
+                Object.keys(localClasses).forEach(id => {
+                    const meta = reviewSyncMeta[id];
+                    if (!merged[id] && meta && meta.dirty) merged[id] = reviewNormalizeClass(localClasses[id]);
+                    if (meta && meta.dirty && merged[id]) {
+                        reviewSyncMeta[id] = Object.assign({}, meta, { localRevision: reviewLocalRevision });
+                    }
+                });
+                allClasses = merged;
+                reviewNormalizeAllClasses();
+                reviewSaveSyncMeta();
+                localStorage.setItem('englishAllClasses', JSON.stringify(allClasses));
+                localStorage.setItem('englishCurrentClassId', currentClassId);
+                updateSyncStatus('ok');
+                if (!foundVocabulary && (readLocalVocabulary('dictation') || readLocalVocabulary('matchgame') || readLocalVocabulary('ketverb'))) syncVocabularyToCloud();
+                if (reviewSyncMeta[currentClassId]?.dirty) reviewScheduleCloudSync();
+                return true;
+            } catch (e) {
+                console.warn('Class cloud load failed:', e);
+                updateSyncStatus('error');
+                return false;
+            }
+        }
+
+        function startClock() {
+            if (reviewClockStarted) return;
+            reviewClockStarted = true;
+            const days = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+            let lastSecond = -1;
+            function tick() {
+                const date = new Date();
+                if (date.getSeconds() !== lastSecond) {
+                    lastSecond = date.getSeconds();
+                    const dateLine = document.getElementById('date-line');
+                    const timeLine = document.getElementById('time-line');
+                    if (dateLine) dateLine.innerText = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()} ${days[date.getDay()]}`;
+                    if (timeLine) timeLine.innerText = `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
+                }
+                requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function reviewTextCell(value, className) {
+            const cell = document.createElement('td');
+            if (className) cell.className = className;
+            cell.textContent = value == null ? '' : String(value);
+            return cell;
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('students-grid');
+            if (!grid) return;
+            grid.replaceChildren();
+            const students = getStudents();
+            if (!Array.isArray(students) || !students.length) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'grid-column:1/-1;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:18px;';
+                empty.textContent = '📥 还没有学生，点击“+学生”添加吧';
+                grid.appendChild(empty);
+                return;
+            }
+            students.forEach(student => {
+                const card = document.createElement('div');
+                card.className = 'student-card';
+                card.onclick = () => handleCardClick(student.id);
+                const del = document.createElement('div');
+                del.className = 'card-del-btn';
+                del.textContent = '×';
+                del.onclick = event => deleteStudent(student.id, event);
+                const left = document.createElement('div');
+                left.className = 'card-left';
+                const avatar = document.createElement('div'); avatar.className = 'card-avatar'; avatar.textContent = student.avatar;
+                const name = document.createElement('div'); name.className = 'card-name'; name.textContent = student.name;
+                left.append(avatar, name);
+                const right = document.createElement('div'); right.className = 'card-right';
+                const score = document.createElement('div'); score.className = 'card-score'; score.id = 'score-' + student.id; score.textContent = String(student.score);
+                const custom = document.createElement('button'); custom.className = 'custom-btn'; custom.type = 'button'; custom.textContent = '自定义';
+                custom.onclick = event => openCustomNumpad(student.id, event);
+                right.append(score, custom);
+                card.append(del, left, right);
+                grid.appendChild(card);
+            });
+        }
+
+        function renderRanking() {
+            const list = document.getElementById('ranking-list');
+            if (!list) return;
+            list.replaceChildren();
+            const students = Array.isArray(getStudents()) ? [...getStudents()].sort((a,b) => Number(b.score) - Number(a.score)) : [];
+            if (!students.length) {
+                const empty = document.createElement('div'); empty.style.cssText = 'text-align:center;color:#bbb;padding:30px;'; empty.textContent = '暂无数据'; list.appendChild(empty); return;
+            }
+            students.forEach((student, index) => {
+                if (showTop5Only && index >= 5) return;
+                const item = document.createElement('div'); item.className = 'rank-item';
+                const medal = document.createElement('div'); medal.className = 'rank-medal'; medal.textContent = index < 3 ? ['🥇','🥈','🥉'][index] : `${index+1}.`;
+                const avatar = document.createElement('div'); avatar.className = 'rank-avatar'; avatar.textContent = student.avatar;
+                const name = document.createElement('div'); name.className = 'rank-name'; name.textContent = student.name;
+                const score = document.createElement('div'); score.className = 'rank-score'; score.textContent = String(student.score);
+                item.append(medal, avatar, name, score); list.appendChild(item);
+            });
+        }
+
+        function updateScore(id, delta) {
+            const amount = Number(delta);
+            if (!Number.isFinite(amount) || amount === 0) return;
+            const student = getStudents().find(item => item.id === id);
+            if (!student) return;
+            saveStateToHistory();
+            student.score = (Number.isFinite(Number(student.score)) ? Number(student.score) : 0) + amount;
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+            getLogs().unshift({ date: dateStr, time: timeStr, name: student.name, category: currentCategory, delta: amount });
+            while (getLogs().length > 200) getLogs().pop();
+            try { playSound(amount > 0 ? 'add' : 'sub'); } catch (e) {}
+            saveData();
+        }
+
+        function openLogModal() {
+            const tbody = document.getElementById('log-tbody');
+            if (!tbody) return;
+            tbody.replaceChildren();
+            const logs = getLogs();
+            if (!Array.isArray(logs) || !logs.length) {
+                const row = document.createElement('tr'); row.appendChild(reviewTextCell('暂无记录')); tbody.appendChild(row);
+            } else {
+                logs.forEach(log => {
+                    const row = document.createElement('tr');
+                    const numeric = typeof log.delta === 'number' ? log.delta : Number(log.delta);
+                    const cls = Number.isFinite(numeric) ? (numeric > 0 ? 'log-add' : numeric < 0 ? 'log-sub' : '') : '';
+                    row.append(reviewTextCell(log.date), reviewTextCell(log.time), reviewTextCell(log.name), reviewTextCell(log.category), reviewTextCell(Number.isFinite(numeric) ? `${numeric > 0 ? '+' : ''}${numeric}` : log.delta, cls));
+                    tbody.appendChild(row);
+                });
+            }
+            document.getElementById('log-modal').classList.add('show');
+        }
+
+        function renderClassList() {
+            const host = document.getElementById('class-list');
+            if (!host) return;
+            host.replaceChildren();
+            Object.keys(allClasses).forEach(id => {
+                const cls = allClasses[id];
+                const item = document.createElement('div'); item.className = 'class-item' + (id === currentClassId ? ' active-class' : '');
+                const name = document.createElement('div'); name.className = 'class-item-name'; name.textContent = (id === currentClassId ? '▶' : '') + cls.name; name.onclick = () => switchClass(id);
+                const count = document.createElement('div'); count.className = 'class-item-count'; count.textContent = `${cls.students.length}人`;
+                const actions = document.createElement('div'); actions.className = 'class-item-btns';
+                if (id !== currentClassId) { const sw = document.createElement('button'); sw.className = 'class-switch-btn'; sw.textContent = '切换'; sw.onclick = () => switchClass(id); actions.appendChild(sw); }
+                else { const current = document.createElement('span'); current.style.cssText = 'font-size:12px;color:var(--primary-dark);'; current.textContent = '当前'; actions.appendChild(current); }
+                const rename = document.createElement('button'); rename.className = 'class-rename-btn'; rename.textContent = '改名'; rename.onclick = () => renameClass(id); actions.appendChild(rename);
+                if (Object.keys(allClasses).length > 1) { const del = document.createElement('button'); del.className = 'class-del-btn'; del.textContent = '删除'; del.onclick = () => deleteClass(id); actions.appendChild(del); }
+                item.append(name, count, actions); host.appendChild(item);
+            });
+        }
+
+        function switchClass(id) {
+            if (!allClasses[id] || id === currentClassId) return;
+            const previousClassId = currentClassId;
+            if (isCloudMode) {
+                if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+                syncCurrentClassToCloud(previousClassId, reviewLocalRevision);
+            }
+            currentClassId = id;
+            historyStack = [];
+            localStorage.setItem('englishCurrentClassId', currentClassId);
+            renderGrid(); renderRanking(); updateClassTitle(); renderClassList();
+            try {
+                const messages = [
+                    ['dictation-iframe', {type:'dictation:refresh'}], ['listen-choice-iframe', {type:'listenchoice:refresh'}],
+                    ['wheel-iframe', {type:'wheel:refresh'}], ['match-iframe', {type:'matchgame:refresh'}],
+                    ['ket-verb-iframe', {type:'ketverb:data', payload:getKetVerbBridgeData()}],
+                    ['tense-iframe', {type:'tense:data', payload:getTenseBridgeData()}],
+                    ['pc-iframe', {type:'pctense:data', payload:getPcTenseBridgeData()}]
+                ];
+                messages.forEach(([frameId, message]) => { const frame = document.getElementById(frameId); if (frame && frame.contentWindow) frame.contentWindow.postMessage(message, '*'); });
+            } catch (e) {}
+        }
+
+        function showAppUI() {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            loadDeletedClassIds(); reviewLoadSyncMeta(); updateUserBadge(); updateSyncStatus('ok');
+            loadAllClassesFromStorage(); initEmojis(); renderPinnedGames(); renderGrid(); renderRanking(); updateClassTitle(); startClock();
+            if (isCloudMode) loadCloudData().then(() => { renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); });
+        }
+
+        function reviewFlushBeforeLeave() {
+            if (isCloudMode && cloudUser && supabaseClient) {
+                reviewFlushCloudSave();
+                if (localStorage.getItem(REVIEW_ATTENDANCE_DIRTY_KEY) === '1') attendanceSyncCloud();
+            }
+        }
+        window.addEventListener('pagehide', reviewFlushBeforeLeave);
+        window.addEventListener('beforeunload', reviewFlushBeforeLeave);
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') reviewFlushBeforeLeave(); });
 
         async function boot(){
             console.log('=== Boot started ===');
