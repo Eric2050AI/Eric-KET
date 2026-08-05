@@ -37,7 +37,8 @@
             { id:'match', group:'英语练习', name:'翻牌配对', icon:'📖', color:'var(--btn-cyan)', action:'openMatchGameModal' },
             { id:'ket-verb', group:'英语练习', name:'动词消消乐', icon:'⚡', color:'var(--btn-purple)', action:'openKetVerbModal' },
             { id:'tense-rescue', group:'英语练习', name:'一般现在时闯关', icon:'🕐', color:'var(--btn-pink)', action:'openTenseModal' },
-            { id:'pc-rescue', group:'英语练习', name:'现在进行时闯关', icon:'🚀', color:'var(--btn-green)', action:'openPcModal' }
+            { id:'pc-rescue', group:'英语练习', name:'现在进行时闯关', icon:'🚀', color:'var(--btn-green)', action:'openPcModal' },
+            { id:'quantity-rescue', group:'英语练习', name:'数量与名词闯关', icon:'🛒', color:'var(--btn-gold)', action:'openQuantityModal' }
         ];
 
         function getPinnedGameIds(){
@@ -628,6 +629,27 @@
                 window.pcTenseAPI.addPcTenseWrongItems(msg.studentId, msg.level, msg.items);
                 return;
             }
+            if (msg.type === 'quantity:requestData') {
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'quantity:data', payload: getQuantityBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'quantity:switchClass') {
+                switchClass(msg.classId);
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'quantity:data', payload: getQuantityBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'quantity:addScore') {
+                window.quantityAPI.addQuantityScore(msg.studentId, msg.score);
+                return;
+            }
+            if (msg.type === 'quantity:addWrongItems') {
+                window.quantityAPI.addQuantityWrongItems(msg.studentId, msg.level, msg.items);
+                return;
+            }
         });
 
         window.matchGameAPI = {
@@ -743,6 +765,43 @@
                 classes: window.pcTenseAPI.getClasses(),
                 currentClassId: window.pcTenseAPI.getCurrentClassId(),
                 students: window.pcTenseAPI.getStudents()
+            };
+        }
+
+        window.quantityAPI = {
+            getClasses: () => Object.keys(allClasses).map(id => ({ id, name: allClasses[id]?.name || '未命名' })),
+            getCurrentClassId: () => currentClassId,
+            getStudents: () => getActiveStudents().map(s => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score })),
+            switchClass: (id) => switchClass(id),
+            addQuantityScore: (studentId, score) => {
+                const val = parseInt(score, 10);
+                if (!studentId || !Number.isFinite(val) || val === 0) return false;
+                selectCategoryButton('互动');
+                updateScore(studentId, val);
+                return true;
+            },
+            addQuantityWrongItems: (studentId, level, items) => {
+                const list = Array.isArray(items) ? items.map(w => String(w || '').trim()).filter(Boolean) : [];
+                if (!studentId || list.length === 0) return false;
+                const s = getStudents().find(st => st.id === studentId);
+                if (!s) return false;
+                const t = new Date();
+                const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+                const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+                const cat = '数量与名词闯关错题' + (level ? ('·' + level) : '');
+                getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
+                while (getLogs().length > 200) getLogs().pop();
+                saveAllClasses();
+                saveData();
+                return true;
+            }
+        };
+
+        function getQuantityBridgeData() {
+            return {
+                classes: window.quantityAPI.getClasses(),
+                currentClassId: window.quantityAPI.getCurrentClassId(),
+                students: window.quantityAPI.getStudents()
             };
         }
 
@@ -4637,6 +4696,140 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
 </html>
 `;
 
+        window._quantityHtml = `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>数量与名词闯关</title>
+<style>
+:root{--bg:#fff8f2;--paper:#fff;--ink:#534453;--muted:#8b7b87;--blue:#5aa9e6;--mint:#63c9ad;--peach:#ffb36b;--pink:#f58ca8;--gold:#f2b84b;--purple:#a98bea;--green:#61c87d;--red:#e87882;--shadow:0 9px 24px rgba(110,79,111,.12);--radius:24px;--body:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;--display:"Trebuchet MS","Microsoft YaHei",sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;font-family:var(--body);color:var(--ink);background:radial-gradient(circle at 10% 0%,#fff0db 0,transparent 28%),linear-gradient(145deg,#fff9f5,#eefaf5);user-select:none}button,select{font:inherit}button{cursor:pointer;border:0}#app{max-width:1120px;margin:auto;padding:18px 22px 42px}.top{text-align:center}.eyebrow{font-size:12px;letter-spacing:2px;font-weight:800;color:#ca8d46}.top h1{font-family:var(--display);font-size:clamp(30px,5vw,54px);margin:5px 0 4px;color:#5b8c9e}.top p{margin:0;color:var(--muted);font-size:15px}.bridge{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;margin:16px auto 18px;background:var(--paper);padding:12px 16px;border-radius:18px;box-shadow:var(--shadow)}.bridge label{font-weight:800;font-size:14px}.bridge select{min-width:145px;padding:9px 12px;border:2px solid #eee2e7;border-radius:12px;background:#fff; color:var(--ink);font-weight:700}.bridge .hint{font-size:13px;color:var(--muted)}.bridge .hint.ready{color:#3d9a6e;font-weight:800}.toolbar{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-bottom:14px}.pill{padding:9px 15px;border-radius:999px;background:#fff;box-shadow:0 4px 12px rgba(110,79,111,.1);font-weight:800;color:var(--ink)}.pill.active{background:#ffe3a9;color:#85591d}.map-card,.game-card,.result-card{background:rgba(255,255,255,.92);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}.map-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.map-title h2{margin:0;font-size:22px}.map-title span{color:var(--muted);font-size:13px}.timer-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0!important;background:transparent!important}.timer-ring{position:absolute;inset:0;width:40px;height:40px;transform:rotate(-90deg)}.timer-ring circle{fill:none;stroke-width:3.2;cx:18;cy:18}.timer-ring-bg{stroke:#e9edf2}.timer-ring-fg{stroke:#5fb0e5;stroke-linecap:round;stroke-dasharray:97.4;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke .3s}.timer-chip b{position:relative;font-size:15px;font-weight:900;color:#4c7fa8;line-height:1}.timer-chip.urgent .timer-ring-fg{stroke:#f0806c}.timer-chip.urgent b{color:#d9543a}.timer-chip.urgent{animation:timerPulse .5s ease-in-out infinite}@keyframes timerPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}.timer-chip.done{opacity:.35}.timer-chip.done .timer-chip b{color:var(--muted)}.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.level{min-height:120px;text-align:left;border-radius:20px;padding:15px;background:#f5fbff;color:var(--ink);box-shadow:0 5px 0 rgba(76,151,194,.12);transition:transform .15s,box-shadow .15s}.level:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(76,151,194,.12)}.level.locked{filter:grayscale(.35);opacity:.55;background:#f2eff2}.level .icon{font-size:30px}.level strong{display:block;font-size:16px;margin-top:5px}.level small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.level:nth-child(2){background:#fff5e8}.level:nth-child(3){background:#eefbf4}.level:nth-child(4){background:#fff0f5}.level:nth-child(5){background:#f2efff}.level:nth-child(6){background:#fff9df}.level:nth-child(7){background:#eaf8ff}.level.boss{border:3px solid #f2b84b}.rules{margin-top:15px;padding:13px 15px;border-radius:17px;background:#fff8e9;color:#765f42;font-size:14px;line-height:1.6}.rules b{color:#bf8037}.game-card{display:none;margin-top:16px}.game-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.game-head h2{margin:0;font-size:23px}.stats{display:flex;gap:8px;flex-wrap:wrap}.stat{padding:7px 11px;border-radius:999px;background:#f4f0f7;font-size:13px;font-weight:800}.progress{height:10px;background:#eee7ee;border-radius:99px;overflow:hidden;margin:15px 0 20px}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--blue));border-radius:99px;transition:width .25s}.question-label{color:var(--muted);font-size:13px;font-weight:800}.question{font-size:clamp(23px,3.7vw,39px);line-height:1.25;text-align:center;margin:15px auto 22px;max-width:850px;min-height:54px}.options{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:850px;margin:auto}.option{min-height:66px;border-radius:18px;padding:14px 16px;background:#eff8ff;color:#2b638d;font-weight:900;font-size:clamp(17px,2.2vw,24px);box-shadow:0 5px 0 #d8ecf9;transition:transform .1s,background .15s}.option:nth-child(2){background:#fff2e5;color:#a35d2b;box-shadow:0 5px 0 #f5ddc5}.option:nth-child(3){background:#eefaf3;color:#347e5b;box-shadow:0 5px 0 #d8efdf}.option:nth-child(4){background:#fff0f5;color:#9e5271;box-shadow:0 5px 0 #f4d7e2}.option:active{transform:translateY(3px);box-shadow:none}.option.correct{background:#c9f3d6!important;color:#247448!important;box-shadow:0 5px 0 #a7dfba!important}.option.wrong{background:#ffd7dc!important;color:#a84755!important;box-shadow:0 5px 0 #f0b0b9!important}.option:disabled{cursor:default}.feedback{display:none;max-width:850px;margin:20px auto 0;padding:15px 17px;border-radius:17px;line-height:1.55;font-size:15px}.feedback.show{display:block}.feedback.good{background:#ebfbf1;border:2px solid #b9e9c9;color:#28724b}.feedback.bad{background:#fff0f1;border:2px solid #f4c5cb;color:#9c4d59}.feedback strong{display:block;font-size:18px;margin-bottom:4px}.actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}.primary,.secondary{padding:11px 20px;border-radius:14px;font-weight:900}.primary{background:var(--blue);color:#fff;box-shadow:0 4px 0 #3c88c0}.secondary{background:#f3edf4;color:#6a5b69}.primary:active,.secondary:active{transform:translateY(2px);box-shadow:none}.result-card{display:none;margin-top:16px;text-align:center}.result-card.show{display:block}.result-card .badge{font-size:52px}.result-card h2{margin:5px 0 6px;font-size:28px}.result-card p{color:var(--muted);line-height:1.6}.wrong-list{max-width:760px;margin:14px auto;text-align:left;background:#fff8eb;border-radius:15px;padding:12px 15px;font-size:14px;line-height:1.65}.wrong-list strong{color:#a5672b}.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;background:#554455;color:#fff;padding:12px 18px;border-radius:999px;transition:.2s;pointer-events:none;z-index:5}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}@media(max-width:760px){#app{padding:14px 12px 30px}.levels{grid-template-columns:repeat(2,1fr)}.level{min-height:112px}.options{grid-template-columns:1fr}.question{min-height:0}.map-card,.game-card,.result-card{padding:16px}.bridge{align-items:stretch;flex-direction:column}.bridge label{display:flex;justify-content:space-between;align-items:center;gap:8px}.bridge select{flex:1}.bridge .hint{text-align:center}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top"><div class="eyebrow">KET · UNIT 3 · GRAMMAR ADVENTURE</div><h1>🛒 超市补货大冒险</h1><p>帮助 Mia 和 Noah 买齐生日派对的食物！</p></header>
+  <div class="bridge">
+    <label>班级 <select id="classSelect"></select></label>
+    <label>学生 <select id="studentSelect"></select></label>
+    <span id="bridgeHint" class="hint">请选择班级和学生</span>
+  </div>
+  <div class="toolbar"><button class="pill active" id="soundBtn">🔊 音效</button><button class="pill" id="resetBtn">↻ 重置进度</button></div>
+  <section class="map-card" id="mapCard">
+    <div class="map-title"><h2>🗺️ 超市探险地图</h2><span id="unlockText"></span></div>
+    <div class="levels" id="levels"></div>
+    <div class="rules"><b>小提示：</b>先观察名词，再决定数量词。可数名词可以数，面包、牛奶、米饭等通常要用量词来表达数量。</div>
+  </section>
+  <section class="game-card" id="gameCard">
+    <div class="game-head"><h2 id="levelTitle"></h2><div class="stats"><span class="stat" id="questionStat"></span><span class="stat" id="scoreStat">⭐ 0</span><span class="stat" id="lifeStat">💛💛💛</span><span class="stat timer-chip" id="timerChip"><svg class="timer-ring" viewBox="0 0 36 36"><circle class="timer-ring-bg" cx="18" cy="18" r="15.5"></circle><circle class="timer-ring-fg" id="timerRing" cx="18" cy="18" r="15.5"></circle></svg><b id="timerNum">5</b></span></div></div>
+    <div class="progress"><i id="progressBar"></i></div>
+    <div class="question-label" id="questionLabel"></div><div class="question" id="question"></div><div class="options" id="options"></div>
+    <div class="feedback" id="feedback"><strong id="feedbackTitle"></strong><span id="feedbackText"></span></div>
+    <div class="actions"><button class="secondary" id="backBtn">返回地图</button><button class="primary" id="nextBtn" style="display:none" aria-hidden="true">下一题 →</button></div>
+  </section>
+  <section class="result-card" id="resultCard"><div class="badge" id="resultBadge">🏆</div><h2 id="resultTitle"></h2><p id="resultText"></p><div class="wrong-list" id="wrongList" style="display:none"></div><div class="actions"><button class="secondary" id="resultMapBtn">返回地图</button><button class="secondary" id="retryBtn">再挑战一次</button><button class="primary" id="wrongBtn" style="display:none">错题复活赛</button></div></section>
+</div><div class="toast" id="toast"></div>
+<script>
+(function(){
+  var levels = [
+    {icon:'🥕',title:'货架分拣员',sub:'可数 / 不可数',qs:[
+      ['Which shelf? apple',['Countable','Uncountable'],0,'We can say one apple and two apples, so apple is countable.'],
+      ['Which shelf? bread',['Countable','Uncountable'],1,'We do not usually count bread one by one, so bread is uncountable.'],
+      ['Which shelf? eggs',['Countable','Uncountable'],0,'We can say one egg and six eggs, so eggs are countable.'],
+      ['Which shelf? rice',['Countable','Uncountable'],1,'Rice does not usually have a plural form, so it is uncountable.'],
+      ['Which shelf? biscuits',['Countable','Uncountable'],0,'We can count biscuits: one biscuit, two biscuits.'],
+      ['Which shelf? milk',['Countable','Uncountable'],1,'Milk is a liquid and is uncountable in this meaning.']
+    ]},
+    {icon:'🧺',title:'购物篮装配',sub:'a / an / 数字 / some',qs:[
+      ['I need ___ apple.',['a','an','some'],1,'Apple is one singular countable noun and starts with a vowel sound: an apple.'],
+      ['There are ___ tomatoes in the basket.',['a','three','much'],1,'Tomatoes are countable, so a number can go before the plural noun.'],
+      ['We have ___ rice.',['a rice','some rice','an rice'],1,'Rice is uncountable, so use some rice, not a rice or an rice.'],
+      ['She bought ___ orange.',['a','an','a lot of'],1,'For one orange, use an because orange starts with a vowel sound.'],
+      ['There are ___ eggs.',['six','much','a little'],0,'Eggs are countable plural, so six eggs is correct.'],
+      ['I want ___ bread.',['a','an','some'],2,'Bread is uncountable here, so say some bread.']
+    ]},
+    {icon:'🧊',title:'冰箱侦探',sub:'some / any',qs:[
+      ["We've got ___ cheese.",['some','any','an'],0,'Use some in a positive sentence: We have got some cheese.'],
+      ['Have we got ___ lemons?',['some','any','a'],1,'Use any in a normal question about whether something exists.'],
+      ["We haven't got ___ butter.",['some','any','an'],1,'Use any in a negative sentence: We have not got any butter.'],
+      ['Would you like ___ chocolate?',['some','any','a'],0,'Offers commonly use some: Would you like some chocolate?'],
+      ['Can I have ___ biscuits, please?',['some','any','a'],0,'Requests commonly use some: Can I have some biscuits?'],
+      ["There aren't ___ eggs.",['some','any','much'],1,'This is a negative sentence, so any is correct.']
+    ]},
+    {icon:'✨',title:'数量魔法师',sub:'many / much / a few / a little / a lot of',qs:[
+      ['How ___ eggs do you need?',['many','much','a little'],0,'Eggs are countable plural, so ask How many eggs?'],
+      ['How ___ milk is there?',['much','many','a few'],0,'Milk is uncountable, so ask How much milk?'],
+      ['I need ___ lemons. Just three.',['a few','a little','much'],0,'A few means a small number of countable things.'],
+      ['Add ___ sugar. Not much.',['a little','a few','many'],0,'A little means a small amount of an uncountable thing.'],
+      ['We have ___ bread for the party.',['a lot of','a few','many'],0,'A lot of can be used with uncountable bread.'],
+      ['There are ___ biscuits in the box. About three.',['a few','a little','much'],0,'Biscuits are countable, so use a few.']
+    ]},
+    {icon:'🥛',title:'量词工厂',sub:'bottle / carton / loaf / slice / bowl / bar',qs:[
+      ['a ___ of water',['bottle','carton','slice'],0,'We commonly say a bottle of water.'],
+      ['a ___ of milk',['carton','slice','bar'],0,'We commonly say a carton of milk.'],
+      ['a ___ of bread',['loaf','bottle','cup'],0,'A loaf is a whole piece of bread.'],
+      ['a ___ of chocolate',['bar','loaf','carton'],0,'We commonly say a bar of chocolate.'],
+      ['a ___ of cake',['slice','bottle','kilo'],0,'A slice is one piece cut from a cake.'],
+      ['a ___ of rice',['bowl','slice','bar'],0,'We commonly say a bowl of rice.']
+    ]},
+    {icon:'💬',title:'超市对话',sub:'在真实对话中选择',qs:[
+      ['Mum: Have we got ___ cheese?',['any','some','a'],0,'This is a question, so any is the usual choice.'],
+      ["Noah: Yes, we've got ___ cheese.",['some','any','an'],0,'This is a positive answer, so use some.'],
+      ['Mum: How ___ eggs do we need?',['many','much','a little'],0,'Eggs are countable plural: How many eggs?'],
+      ['Noah: Just ___ . Four.',['a few','a little','much'],0,'Four eggs is a small number: a few.'],
+      ['Mum: And how ___ milk?',['much','many','a few'],0,'Milk is uncountable: How much milk?'],
+      ['Noah: Just ___ . Half a cup.',['a little','a few','many'],0,'Half a cup is a small amount: a little.']
+    ]},
+    {icon:'🎂',title:'生日派对 Boss',sub:'综合挑战',boss:true,qs:[
+      ['I need ___ orange and ___ bread.',['an / some','a / a','some / an'],0,'Use an with one orange and some with uncountable bread.'],
+      ['Have we got ___ lemons?',['any','some','a'],0,'Use any in this normal question.'],
+      ['There are ___ eggs in the basket. About three.',['a few','a little','much'],0,'Eggs are countable, so a few is correct.'],
+      ['a ___ of water',['bottle','slice','bar'],0,'A bottle of water is the natural phrase.'],
+      ['How ___ juice do we need?',['much','many','a few'],0,'Juice is uncountable, so use much.'],
+      ['Would you like ___ biscuits?',['some','any','an'],0,'Offers commonly use some.'],
+      ["We haven't got ___ butter.",['any','some','a'],0,'Use any in a negative sentence.'],
+      ['I bought ___ apples for everyone.',['a lot of','a little','much'],0,'Apples are countable plural, and a lot of works with them.']
+    ]}
+  ];
+  var bridge={classes:[],currentClassId:null,students:[]};
+  var state={level:0,questions:[],index:0,correct:0,lives:3,score:0,wrong:[],isRetry:false};
+  var unlocked=Math.max(1,Number(localStorage.getItem('quantityUnlocked')||1));
+  var soundOn=localStorage.getItem('quantitySound')!=='off';
+  var $=function(id){return document.getElementById(id)};
+  function inFrame(){return window.parent!==window}
+  function beep(kind){if(!soundOn)return;try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var c=beep.ctx||(beep.ctx=new C());if(c.state==='suspended')c.resume();var o=c.createOscillator(),g=c.createGain(),now=c.currentTime;o.type='sine';o.frequency.value=kind===1?880:kind===2?660:520;g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.12,now+.01);g.gain.exponentialRampToValueAtTime(.0001,now+.18);o.connect(g);g.connect(c.destination);o.start(now);o.stop(now+.2)}catch(e){}}
+  function requestData(){if(!inFrame())return;window.parent.postMessage({type:'quantity:requestData'},'*');if(bridge.classes&&bridge.classes.length){requestData.tries=0;return}requestData.tries=(requestData.tries||0)+1;if(requestData.tries<20){clearTimeout(requestData.timer);requestData.timer=setTimeout(requestData,400)}}
+  function applyBridgeData(data){bridge=data||bridge;renderBridge()}
+  function renderBridge(){var cs=$('classSelect'),ss=$('studentSelect');cs.innerHTML='';(bridge.classes||[]).forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.name;cs.appendChild(o)});if(bridge.currentClassId)cs.value=bridge.currentClassId;ss.innerHTML='';(bridge.students||[]).forEach(function(s){var o=document.createElement('option');o.value=s.id;o.textContent=s.name;ss.appendChild(o)});if(!state.selectedStudentId&&bridge.students&&bridge.students[0])state.selectedStudentId=bridge.students[0].id;ss.value=state.selectedStudentId||'';var ready=!!state.selectedStudentId; $('bridgeHint').textContent=ready?'已连接，可开始闯关':'请选择班级和学生';$('bridgeHint').className='hint'+(ready?' ready':'')}
+  function send(msg){if(inFrame())window.parent.postMessage(msg,'*')}
+  function shuffle(list){var a=list.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+  function renderLevels(){var host=$('levels');host.innerHTML='';levels.forEach(function(l,i){var b=document.createElement('button');b.className='level'+(i+1>unlocked?' locked':'')+(l.boss?' boss':'');b.innerHTML='<span class="icon">'+l.icon+'</span><strong>'+ (i+1)+'. '+l.title+'</strong><small>'+l.sub+(i+1>unlocked?' · 🔒':'')+'</small>';b.disabled=i+1>unlocked;b.onclick=function(){startLevel(i,false)};host.appendChild(b)});$('unlockText').textContent='已解锁 '+unlocked+' / '+levels.length+' 关'}
+  function showToast(message){var t=$('toast');t.textContent=message;t.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(function(){t.classList.remove('show')},2200)}
+  function startLevel(index,retry){if(!retry&&index+1>unlocked)return;if(inFrame()&&!state.selectedStudentId){showToast('请先选择一名学生');return}state.level=index;state.isRetry=!!retry;state.questions=shuffle(retry?state.wrong.map(function(w){return w.q}):levels[index].qs.map(function(a){return{prompt:a[0],options:a[1],answer:a[2],explanation:a[3]}}));state.index=0;state.correct=0;state.lives=3;state.score=0;state.wrong=[];$('mapCard').style.display='none';$('resultCard').classList.remove('show');$('gameCard').style.display='block';$('levelTitle').textContent=levels[index].icon+' '+levels[index].title+ (retry?' · 错题复活赛':'');$('nextBtn').style.display='none';clearTimers();renderQuestion()}
+  function renderQuestion(){var q=state.questions[state.index];if(!q){finishLevel();return}$('questionStat').textContent=(state.index+1)+' / '+state.questions.length;$('scoreStat').textContent='⭐ '+state.score;$('lifeStat').textContent='💛'.repeat(state.lives)+'🩶'.repeat(3-state.lives);$('progressBar').style.width=((state.index/state.questions.length)*100)+'%';$('questionLabel').textContent=levels[state.level].sub;$('question').textContent=q.prompt;var host=$('options');host.innerHTML='';$('feedback').className='feedback';$('nextBtn').style.display='none';q.options.forEach(function(opt,i){var b=document.createElement('button');b.className='option';b.textContent=opt;b.onclick=function(){answer(i,b)};host.appendChild(b)});startTimer()}
+  var QUESTION_SECONDS=5,ADVANCE_DELAY=1000,RING_LEN=97.4;
+  var timer={tick:null,advance:null,left:0,locked:false};
+  function clearTimers(){if(timer.tick){clearInterval(timer.tick);timer.tick=null}if(timer.advance){clearTimeout(timer.advance);timer.advance=null}}
+  function paintTimer(){var chip=$('timerChip'),ring=$('timerRing'),num=$('timerNum');if(!chip)return;num.textContent=timer.left;ring.style.strokeDashoffset=RING_LEN*(1-timer.left/QUESTION_SECONDS);chip.className='stat timer-chip'+(timer.left<=2&&timer.left>0?' urgent':'')+(timer.left<=0?' done':'')}
+  function stopTimer(){clearTimers();var chip=$('timerChip');if(chip)chip.classList.remove('urgent')}
+  function startTimer(){clearTimers();timer.locked=false;timer.left=QUESTION_SECONDS;paintTimer();timer.tick=setInterval(function(){timer.left--;if(timer.left<=0){timer.left=0;paintTimer();clearTimers();timeUp();return}paintTimer()},1000)}
+  function scheduleNext(){clearTimeout(timer.advance);timer.advance=setTimeout(function(){timer.advance=null;next()},ADVANCE_DELAY)}
+  function timeUp(){if(timer.locked)return;timer.locked=true;var q=state.questions[state.index];if(!q)return;var buttons=[].slice.call($('options').children);buttons.forEach(function(b){b.disabled=true});if(buttons[q.answer])buttons[q.answer].classList.add('correct');state.lives=Math.max(0,state.lives-1);state.wrong.push({q:q});beep(0);$('lifeStat').textContent='💛'.repeat(state.lives)+'🩶'.repeat(3-state.lives);$('feedbackTitle').textContent='⏰ 时间到！';$('feedbackText').textContent=q.explanation;$('feedback').className='feedback show bad';scheduleNext()}
+  function answer(choice,chosen){if(timer.locked)return;timer.locked=true;stopTimer();var q=state.questions[state.index];var buttons=[].slice.call($('options').children);buttons.forEach(function(b){b.disabled=true});buttons[q.answer].classList.add('correct');var correct=choice===q.answer;if(!correct){chosen.classList.add('wrong');state.lives=Math.max(0,state.lives-1);state.wrong.push({q:q});beep(0)}else{state.correct++;state.score+=5;beep(1)}$('lifeStat').textContent='💛'.repeat(state.lives)+'🩶'.repeat(3-state.lives);$('scoreStat').textContent='⭐ '+state.score;$('feedbackTitle').textContent=correct?'✅ Great job!':'💡 Let’s learn it!';$('feedbackText').textContent=q.explanation;$('feedback').className='feedback show '+(correct?'good':'bad');scheduleNext()}
+  function next(){clearTimers();state.index++;renderQuestion()}
+  function finishLevel(){stopTimer();timer.locked=true;var chip=$('timerChip');if(chip)chip.className='stat timer-chip done';var total=state.questions.length,rate=total?state.correct/total:0,passed=rate>=.8; $('gameCard').style.display='none';$('resultCard').classList.add('show');$('resultBadge').textContent=passed?'🏆':'💪';$('resultTitle').textContent=passed?'关卡完成！':'再试一次，你可以的！';$('resultText').textContent='答对 '+state.correct+' / '+total+' 题 · 本关获得 '+state.score+' 分'+(passed?' · 正确率达到 '+Math.round(rate*100)+'%，已解锁下一关！':' · 需要答对 80% 才能解锁下一关。');var list=$('wrongList');if(state.wrong.length){list.style.display='block';list.innerHTML='<strong>本轮需要复习：</strong><br>'+state.wrong.map(function(w){return '• '+w.q.prompt+' → '+w.q.options[w.q.answer]}).join('<br>')}else{list.style.display='none'}$('wrongBtn').style.display=state.wrong.length?'inline-block':'none';$('retryBtn').style.display=state.isRetry?'none':'inline-block';if(!state.isRetry&&passed){if(state.level+2>unlocked){unlocked=Math.min(levels.length,state.level+2);localStorage.setItem('quantityUnlocked',String(unlocked))}if(state.score>0)send({type:'quantity:addScore',studentId:state.selectedStudentId,score:state.score,level:levels[state.level].title});if(state.wrong.length)send({type:'quantity:addWrongItems',studentId:state.selectedStudentId,level:levels[state.level].title,items:state.wrong.map(function(w){return w.q.prompt+' → '+w.q.options[w.q.answer]})});beep(2)}else if(!state.isRetry&&state.wrong.length){send({type:'quantity:addWrongItems',studentId:state.selectedStudentId,level:levels[state.level].title,items:state.wrong.map(function(w){return w.q.prompt+' → '+w.q.options[w.q.answer]})})}}
+  function backToMap(){ stopTimer();timer.locked=true;$('gameCard').style.display='none';$('resultCard').classList.remove('show');$('mapCard').style.display='block';renderLevels() }
+  $('classSelect').onchange=function(){var id=this.value;state.selectedStudentId='';send({type:'quantity:switchClass',classId:id});};
+  $('studentSelect').onchange=function(){state.selectedStudentId=this.value;renderBridge()};
+  $('soundBtn').onclick=function(){soundOn=!soundOn;localStorage.setItem('quantitySound',soundOn?'on':'off');this.textContent=soundOn?'🔊 音效':'🔇 静音';beep(1)};
+  $('resetBtn').onclick=function(){if(confirm('确定要重新锁定所有关卡吗？')){unlocked=1;localStorage.setItem('quantityUnlocked','1');backToMap()}};
+  $('backBtn').onclick=backToMap;$('nextBtn').onclick=next;$('resultMapBtn').onclick=backToMap;$('retryBtn').onclick=function(){startLevel(state.level,false)};$('wrongBtn').onclick=function(){startLevel(state.level,true)};
+  window.addEventListener('message',function(e){var msg=e.data||{};if(msg.type==='quantity:data')applyBridgeData(msg.payload)});
+  renderLevels();renderBridge();$('soundBtn').textContent=soundOn?'🔊 音效':'🔇 静音';requestData();
+})();
+<\/script>
+</body></html>`;
 
         function openKetVerbModal() {
             const modal = document.getElementById('ket-verb-modal');
@@ -4656,6 +4849,18 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             const modal = document.getElementById('pc-modal');
             const iframe = document.getElementById('pc-iframe');
             iframe.srcdoc = window._pcHtml || '';
+            modal.classList.add('show');
+        }
+
+        function openQuantityModal() {
+            const modal = document.getElementById('quantity-modal');
+            const iframe = document.getElementById('quantity-iframe');
+            iframe.onload = function() {
+                try {
+                    iframe.contentWindow.postMessage({ type: 'quantity:data', payload: getQuantityBridgeData() }, '*');
+                } catch (e) {}
+            };
+            iframe.srcdoc = window._quantityHtml || '';
             modal.classList.add('show');
         }
 
@@ -4695,6 +4900,10 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             }
             if(id === 'pc-modal') {
                 const f = document.getElementById('pc-iframe');
+                if(f) f.srcdoc = '';
+            }
+            if(id === 'quantity-modal') {
+                const f = document.getElementById('quantity-iframe');
                 if(f) f.srcdoc = '';
             }
         }
@@ -5590,6 +5799,39 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             });
         }
 
+        /* 日志按“并集”合并：本地与云端各自的记录都保留，去重后按时间倒序，最多保留 200 条。
+           避免任何一端把另一端当天的课堂日志覆盖掉。 */
+        function reviewLogKey(log) {
+            if (!log || typeof log !== 'object') return '';
+            return [log.date || '', log.time || '', log.name || '', log.category || '', String(log.delta)].join('|');
+        }
+        function reviewLogStamp(log) {
+            return String((log && log.date) || '') + ' ' + String((log && log.time) || '');
+        }
+        function reviewMergeLogs(a, b) {
+            const listA = Array.isArray(a) ? a : [];
+            const listB = Array.isArray(b) ? b : [];
+            const seen = Object.create(null);
+            const out = [];
+            listA.concat(listB).forEach(log => {
+                if (!log || typeof log !== 'object') return;
+                const key = reviewLogKey(log);
+                if (seen[key]) return;
+                seen[key] = true;
+                out.push(log);
+            });
+            out.sort((x, y) => reviewLogStamp(y).localeCompare(reviewLogStamp(x)));
+            return out.slice(0, 200);
+        }
+        /* 学生合并：以 base 为准，补进 extra 里独有的学生（例如另一端新加的学生）。 */
+        function reviewMergeStudents(base, extra) {
+            const list = Array.isArray(base) ? base.slice() : [];
+            const ids = Object.create(null);
+            list.forEach(s => { if (s && s.id) ids[s.id] = true; });
+            (Array.isArray(extra) ? extra : []).forEach(s => { if (s && s.id && !ids[s.id]) { ids[s.id] = true; list.push(s); } });
+            return list;
+        }
+
         function reviewNormalizeClass(cls, fallbackName) {
             const item = cls && typeof cls === 'object' ? cls : {};
             return {
@@ -5668,6 +5910,16 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             const run = async () => {
                 try {
                     updateSyncStatus('pending');
+                    // 先看云端现有日志，合并后再写回：另一台设备当天记的日志不会被本机覆盖掉。
+                    try {
+                        const existing = await supabaseClient.from('class_data').select('logs')
+                            .eq('user_id', cloudUser.id).eq('class_id', targetClassId).single();
+                        if (existing && existing.data && Array.isArray(existing.data.logs)) {
+                            payload.logs = reviewMergeLogs(payload.logs, existing.data.logs);
+                            const localClass = allClasses[targetClassId];
+                            if (localClass) localClass.logs = payload.logs.slice();
+                        }
+                    } catch (mergeErr) { /* 取不到就按本地日志上传 */ }
                     const result = await supabaseClient.from('class_data').upsert(payload, { onConflict: 'user_id,class_id' });
                     if (result && result.error) throw result.error;
                     const meta = reviewSyncMeta[targetClassId];
@@ -5796,14 +6048,23 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
                     }
                     if (deletedClassIds.includes(row.class_id)) return;
                     const meta = reviewSyncMeta[row.class_id];
+                    const cloudSide = reviewNormalizeClass({
+                        name: row.class_name,
+                        students: row.students,
+                        logs: row.logs
+                    }, row.class_name);
                     if (meta && meta.dirty && localClasses[row.class_id]) {
-                        merged[row.class_id] = reviewNormalizeClass(localClasses[row.class_id], row.class_name);
+                        // 本地有未同步修改：以本地为准，但日志取两边并集，
+                        // 并补回只存在于云端的学生，避免另一台设备当天的课堂记录被覆盖。
+                        const localSide = reviewNormalizeClass(localClasses[row.class_id], row.class_name);
+                        localSide.logs = reviewMergeLogs(localSide.logs, cloudSide.logs);
+                        localSide.students = reviewMergeStudents(localSide.students, cloudSide.students);
+                        merged[row.class_id] = localSide;
                     } else {
-                        merged[row.class_id] = reviewNormalizeClass({
-                            name: row.class_name,
-                            students: row.students,
-                            logs: row.logs
-                        }, row.class_name);
+                        // 以云端为准，但本地可能还有尚未上传成功的日志，一并保留。
+                        const localSide = localClasses[row.class_id];
+                        cloudSide.logs = reviewMergeLogs(cloudSide.logs, localSide && localSide.logs);
+                        merged[row.class_id] = cloudSide;
                     }
                 });
                 Object.keys(localClasses).forEach(id => {
@@ -5984,7 +6245,8 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
                     ['wheel-iframe', {type:'wheel:refresh'}], ['match-iframe', {type:'matchgame:refresh'}],
                     ['ket-verb-iframe', {type:'ketverb:data', payload:getKetVerbBridgeData()}],
                     ['tense-iframe', {type:'tense:data', payload:getTenseBridgeData()}],
-                    ['pc-iframe', {type:'pctense:data', payload:getPcTenseBridgeData()}]
+                    ['pc-iframe', {type:'pctense:data', payload:getPcTenseBridgeData()}],
+                    ['quantity-iframe', {type:'quantity:data', payload:getQuantityBridgeData()}]
                 ];
                 messages.forEach(([frameId, message]) => { const frame = document.getElementById(frameId); if (frame && frame.contentWindow) frame.contentWindow.postMessage(message, '*'); });
             } catch (e) {}
@@ -5995,7 +6257,13 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             document.getElementById('app-container').style.display = 'flex';
             loadDeletedClassIds(); reviewLoadSyncMeta(); updateUserBadge(); updateSyncStatus('ok');
             loadAllClassesFromStorage(); initEmojis(); renderPinnedGames(); renderGrid(); renderRanking(); updateClassTitle(); startClock();
-            if (isCloudMode) loadCloudData().then(() => { renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); });
+            if (isCloudMode) loadCloudData().then(() => {
+                renderGrid(); renderRanking(); updateClassTitle(); renderClassList();
+                const quantityFrame = document.getElementById('quantity-iframe');
+                if (quantityFrame && quantityFrame.contentWindow) {
+                    quantityFrame.contentWindow.postMessage({ type: 'quantity:data', payload: getQuantityBridgeData() }, '*');
+                }
+            });
         }
 
         function reviewFlushBeforeLeave() {
@@ -6882,6 +7150,7 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
     <div class="modal-overlay tool-modal" id="ket-verb-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('ket-verb-modal')">✕</button> <iframe id="ket-verb-iframe" class="tool-iframe" title="KET不规则动词消消乐" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="tense-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-modal')">✕</button> <iframe id="tense-iframe" class="tool-iframe" title="一般现在时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="pc-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('pc-modal')">✕</button> <iframe id="pc-iframe" class="tool-iframe" title="现在进行时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="quantity-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('quantity-modal')">✕</button> <iframe id="quantity-iframe" class="tool-iframe" title="数量与名词闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     
     <div class="modal-overlay attendance-fullscreen-modal" id="attendance-modal-container" data-attendance-theme="peach">
         <div class="attendance-shell" role="dialog" aria-modal="true" aria-label="排课与签到">
