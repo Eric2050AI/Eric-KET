@@ -39,6 +39,7 @@
             { id:'ket-verb', group:'英语练习', name:'动词消消乐', icon:'⚡', color:'var(--btn-purple)', action:'openKetVerbModal' },
             { id:'tense-rescue', group:'英语练习', name:'一般现在时闯关', icon:'🕐', color:'var(--btn-pink)', action:'openTenseModal' },
             { id:'pc-rescue', group:'英语练习', name:'现在进行时闯关', icon:'🚀', color:'var(--btn-green)', action:'openPcModal' },
+            { id:'tense-mix', group:'英语练习', name:'时态小侦探', icon:'🕵️', color:'var(--btn-blue)', action:'openTenseMixModal' },
             { id:'quantity-rescue', group:'英语练习', name:'数量与名词闯关', icon:'🛒', color:'var(--btn-gold)', action:'openQuantityModal' }
         ];
 
@@ -675,6 +676,27 @@
                 window.pcTenseAPI.addPcTenseWrongItems(msg.studentId, msg.level, msg.items);
                 return;
             }
+            if (msg.type === 'tensemix:requestData') {
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'tensemix:data', payload: getTenseMixBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'tensemix:switchClass') {
+                switchClass(msg.classId);
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'tensemix:data', payload: getTenseMixBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'tensemix:addScore') {
+                window.tenseMixAPI.addTenseMixScore(msg.studentId, msg.score);
+                return;
+            }
+            if (msg.type === 'tensemix:addWrongItems') {
+                window.tenseMixAPI.addTenseMixWrongItems(msg.studentId, msg.level, msg.items);
+                return;
+            }
             if (msg.type === 'quantity:requestData') {
                 if (event.source && event.source.postMessage) {
                     event.source.postMessage({ type: 'quantity:data', payload: getQuantityBridgeData() }, '*');
@@ -811,6 +833,43 @@
                 classes: window.pcTenseAPI.getClasses(),
                 currentClassId: window.pcTenseAPI.getCurrentClassId(),
                 students: window.pcTenseAPI.getStudents()
+            };
+        }
+
+        window.tenseMixAPI = {
+            getClasses: () => Object.keys(allClasses).map(id => ({ id, name: allClasses[id]?.name || '未命名' })),
+            getCurrentClassId: () => currentClassId,
+            getStudents: () => getActiveStudents().map(s => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score })),
+            switchClass: (id) => switchClass(id),
+            addTenseMixScore: (studentId, score) => {
+                const val = parseInt(score, 10);
+                if (!studentId || !Number.isFinite(val) || val === 0) return false;
+                selectCategoryButton('互动');
+                updateScore(studentId, val);
+                return true;
+            },
+            addTenseMixWrongItems: (studentId, level, items) => {
+                const list = Array.isArray(items) ? items.map(w => String(w || '').trim()).filter(Boolean) : [];
+                if (!studentId || list.length === 0) return false;
+                const s = getStudents().find(st => st.id === studentId);
+                if (!s) return false;
+                const t = new Date();
+                const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+                const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+                const cat = '一般现在时与现在进行时综合错题' + (level ? ('·' + level) : '');
+                getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
+                while (getLogs().length > 200) getLogs().pop();
+                saveAllClasses();
+                saveData();
+                return true;
+            }
+        };
+
+        function getTenseMixBridgeData() {
+            return {
+                classes: window.tenseMixAPI.getClasses(),
+                currentClassId: window.tenseMixAPI.getCurrentClassId(),
+                students: window.tenseMixAPI.getStudents()
             };
         }
 
@@ -4742,6 +4801,113 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
 </html>
 `;
 
+        window._tenseMixHtml = `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>时态小侦探</title>
+<style>
+:root{--ink:#24344d;--muted:#71809a;--blue:#4da8e8;--blue-dark:#237dbb;--mint:#65c9b0;--peach:#ffb879;--yellow:#ffd86b;--pink:#f28baa;--lav:#a991e8;--cream:#fffaf1;--card:#fff;--shadow:0 12px 28px rgba(67,91,128,.14)}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Arial,"Microsoft YaHei",sans-serif;color:var(--ink);background:linear-gradient(135deg,#fffaf1 0%,#eef9ff 100%)}
+button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulation}button:disabled{cursor:not-allowed;opacity:.62}
+.app{max-width:1180px;min-height:100vh;margin:auto;padding:18px clamp(14px,3vw,34px) 30px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:15px}.brand{display:flex;gap:12px;align-items:center}.brand-badge{width:58px;height:58px;border-radius:20px;display:grid;place-items:center;background:linear-gradient(135deg,var(--blue),var(--lav));font-size:31px;box-shadow:var(--shadow)}h1{margin:0;font-size:clamp(24px,4vw,38px);letter-spacing:.3px}.subtitle{margin:5px 0 0;color:var(--muted);font-size:14px}.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.control{min-height:42px;border-radius:14px;padding:9px 12px;background:#fff;border:2px solid #e9edf5;color:var(--ink);box-shadow:0 4px 10px rgba(50,70,100,.06);font-weight:700}.control:focus{outline:3px solid rgba(77,168,232,.22);border-color:var(--blue)}.sound{background:#fff4d7;border-color:#ffe49b}.restart{background:#ffe5ea;border-color:#ffc2cf}.panel{background:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.95);border-radius:24px;box-shadow:var(--shadow);padding:clamp(16px,3vw,28px)}
+.student-note{display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:15px;background:#eef9ff;color:var(--blue-dark);font-weight:800;font-size:14px;margin-bottom:16px}.student-note.warn{background:#fff3df;color:#b96b26}.student-note.ok{background:#e9fbf4;color:#25856b}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr);gap:18px;align-items:stretch}.hero h2{font-size:clamp(22px,3vw,32px);margin:0 0 9px}.hero p{line-height:1.7;margin:0;color:var(--muted)}.rule-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:18px}.rule{border-radius:18px;padding:15px;min-height:110px}.rule.simple{background:#e8f5ff}.rule.continuous{background:#eafaf4}.rule b{display:block;font-size:17px;margin-bottom:6px}.rule span{color:#53647d;line-height:1.55;font-size:13px}.scene{min-height:220px;border-radius:22px;background:linear-gradient(160deg,#dff4ff,#fff1db);display:grid;place-items:center;position:relative;overflow:hidden}.scene:before,.scene:after{content:"";position:absolute;border-radius:50%;opacity:.65}.scene:before{width:170px;height:170px;background:#ffd86b;top:-55px;right:-35px}.scene:after{width:140px;height:140px;background:#a8e8d4;bottom:-60px;left:-25px}.scene-emoji{position:relative;z-index:1;font-size:82px;filter:drop-shadow(0 9px 5px rgba(55,88,115,.16))}.scene-label{position:absolute;z-index:1;bottom:16px;font-weight:900;color:#356182;background:rgba(255,255,255,.76);padding:8px 13px;border-radius:999px}
+.map-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0 12px}.map-head h3{margin:0;font-size:21px}.map-head span{color:var(--muted);font-size:13px}.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.level{border-radius:20px;padding:18px;background:#fff;border:3px solid transparent;box-shadow:0 6px 17px rgba(67,91,128,.09);display:flex;flex-direction:column;min-height:210px}.level:nth-child(1){border-color:#b9e1fb}.level:nth-child(2){border-color:#bcebdd}.level:nth-child(3){border-color:#ffdca7}.level.locked{filter:saturate(.55);background:#f5f6f9}.level-top{display:flex;justify-content:space-between;align-items:center}.level-icon{font-size:33px}.level-state{font-size:12px;font-weight:900;color:var(--muted)}.level h4{font-size:19px;margin:12px 0 5px}.level p{margin:0;color:var(--muted);font-size:13px;line-height:1.55;flex:1}.start-level,.game-actions>button{border-radius:14px;padding:12px 18px;font-weight:900;font-size:15px;line-height:1.2;min-width:118px}
+.primary{background:var(--blue);color:#fff;box-shadow:0 5px 0 #2a87c4}.start-level:active,.primary:active{transform:translateY(2px);box-shadow:0 3px 0 #2a87c4}
+.secondary:active{transform:translateY(2px);box-shadow:0 3px 0 #d3dcea}.level:nth-child(2) .start-level{background:var(--mint);box-shadow:0 5px 0 #43a88f}.level:nth-child(3) .start-level{background:var(--peach);box-shadow:0 5px 0 #e79a55}.tip{margin-top:16px;border-radius:16px;background:#fff6d9;padding:12px 14px;color:#8b6a1e;font-size:13px;line-height:1.55}
+.hidden{display:none!important}.game-panel{max-width:920px;margin:auto}.game-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px}.game-title{font-size:clamp(20px,3vw,29px);font-weight:900}.stats{display:flex;gap:8px;flex-wrap:wrap}.stat{min-width:90px;padding:8px 11px;border-radius:13px;background:#f4f8ff;text-align:center;font-size:12px;color:var(--muted);font-weight:800}.stat strong{display:block;font-size:17px;color:var(--ink);margin-top:2px}.progress{height:12px;border-radius:99px;background:#e9eef6;overflow:hidden;margin-bottom:20px}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--lav));border-radius:99px;transition:width .25s ease}.question-card{border-radius:22px;background:linear-gradient(145deg,#fff,#f6fbff);border:2px solid #e8f0f8;padding:clamp(18px,4vw,34px);text-align:center;min-height:300px;display:flex;flex-direction:column;justify-content:center}.cue{display:inline-block;margin:0 auto 14px;padding:8px 14px;border-radius:999px;background:#fff0c7;color:#946d19;font-size:13px;font-weight:900}.prompt{font-size:clamp(22px,3.4vw,34px);font-weight:900;line-height:1.32;margin:0 auto 22px;max-width:900px;text-wrap:balance;overflow-wrap:break-word}.options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;max-width:760px;width:100%;margin:0 auto}.option{min-height:64px;border-radius:17px;background:#fff;border:3px solid #dbe8f4;color:var(--ink);padding:12px 15px;font-size:clamp(16px,2.1vw,22px);font-weight:900;box-shadow:0 5px 12px rgba(75,110,145,.08);transition:transform .16s,background .16s,border-color .16s}.option:hover{transform:translateY(-2px);border-color:var(--blue)}.option.correct{background:#dff8eb;border-color:#55bd91;color:#197153}.option.wrong{background:#ffe5e9;border-color:#ed8a9a;color:#aa4153}.feedback{min-height:58px;margin-top:16px;border-radius:15px;padding:12px 15px;text-align:left;line-height:1.55;font-size:14px;font-weight:700}.feedback.good{background:#e7faf1;color:#207b61}.feedback.bad{background:#fff0e2;color:#a5652b}.feedback b{color:var(--ink)}.game-actions{display:flex;justify-content:center;align-items:stretch;gap:10px;flex-wrap:wrap;margin-top:17px;margin-bottom:5px}.secondary{background:#eef2f8;color:var(--ink);box-shadow:0 5px 0 #d3dcea}.danger{background:#ffe6ea;color:#a54458}.timer-track{height:8px;margin:12px 0 0;border-radius:99px;background:#edf1f5;overflow:hidden}.timer-track i{display:block;height:100%;width:100%;background:var(--mint);transition:width 1s linear}.timer-track i.urgent{background:var(--pink)}
+.result{text-align:center}.result-badge{font-size:66px}.result h2{font-size:28px;margin:4px 0 8px}.result p{color:var(--muted);line-height:1.65;margin:0 auto;max-width:680px}.result-score{display:inline-flex;gap:10px;align-items:center;margin:18px auto;padding:12px 18px;border-radius:999px;background:#fff3c9;color:#8b6a1e;font-size:18px;font-weight:900}.wrong-review{margin:15px auto 0;max-width:760px;text-align:left;border-radius:17px;background:#fff6ee;padding:15px;line-height:1.65;color:#76563a;font-size:13px}.wrong-review strong{color:#a5652b}.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#24344d;color:white;padding:12px 17px;border-radius:999px;font-weight:800;transition:.2s;z-index:10}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:800px){.hero{grid-template-columns:1fr}.scene{min-height:150px}.levels{grid-template-columns:1fr}.level{min-height:0}.level p{min-height:0}.game-panel{padding:15px}.prompt{font-size:clamp(20px,5.6vw,28px)}}
+@media(max-width:520px){.app{padding:12px 10px 24px}.brand-badge{width:48px;height:48px;border-radius:16px;font-size:25px}.top{margin-bottom:10px}.tools{width:100%}.tools select{flex:1;min-width:0}.rule-row{grid-template-columns:1fr}.options{grid-template-columns:1fr}.option{min-height:58px}.stats{width:100%}.stat{flex:1;min-width:0}.question-card{min-height:360px;padding:18px 12px}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <div class="brand"><div class="brand-badge">🕵️</div><div><h1>时态小侦探</h1><p class="subtitle">Present Simple &amp; Present Continuous</p></div></div>
+    <div class="tools"><select id="classSelect" class="control" aria-label="选择班级"><option value="">选择班级</option></select><select id="studentSelect" class="control" aria-label="选择学生"><option value="">请选择学生</option></select><button id="soundBtn" class="control sound" type="button">🔊 音效</button><button id="restartBtn" class="control restart" type="button">↻ 重置</button></div>
+  </header>
+  <div id="studentNote" class="student-note warn">👤 请先选择一名学生，再开始挑战。</div>
+  <section id="mapView" class="panel">
+    <div class="hero"><div><h2>找出正确的时态线索！</h2><p>习惯、事实和状态用一般现在时；正在发生的动作用现在进行时。完成三关，成为真正的时态小侦探。</p><div class="rule-row"><div class="rule simple"><b>🔁 一般现在时</b><span>Present Simple<br>usually · often · every day<br>习惯、事实和不变的状态</span></div><div class="rule continuous"><b>✨ 现在进行时</b><span>Present Continuous<br>now · at the moment · Look!<br>正在发生的动作</span></div></div></div><div class="scene"><div class="scene-emoji">👗</div><div class="scene-label">School Fashion Show</div></div></div>
+    <div class="map-head"><h3>🗺️ 三关挑战地图</h3><span>达到 80% 才能解锁下一关</span></div><div id="levelGrid" class="levels"></div><div class="tip">💡 小提示：先找时间线索，再看句子的意思；如果是状态动词，如 <b>know / like / understand / think</b>，通常不用进行时。</div>
+  </section>
+  <section id="gameView" class="panel game-panel hidden"><div class="game-head"><div class="game-title" id="gameTitle">第一关</div><div class="stats"><div class="stat">题目<strong id="questionStat">1 / 8</strong></div><div class="stat">得分<strong id="scoreStat">⭐ 0</strong></div><div class="stat">时间<strong id="timerStat">10</strong></div></div></div><div class="progress"><i id="progressBar"></i></div><div class="question-card"><div class="cue" id="cue">找线索</div><p class="prompt" id="prompt"></p><div id="options" class="options"></div><div id="feedback" class="feedback"></div><div class="timer-track"><i id="timerBar"></i></div></div></section>
+  <section id="resultView" class="panel game-panel result hidden"><div id="resultBadge" class="result-badge">🏆</div><h2 id="resultTitle">关卡完成！</h2><p id="resultText"></p><div id="resultScore" class="result-score">⭐ 本关得分 0</div><div id="wrongReview" class="wrong-review hidden"></div><div class="game-actions"><button id="resultNextBtn" class="primary" type="button">继续挑战</button><button id="resultWrongBtn" class="secondary" type="button">🧠 重练错题</button><button id="resultMapBtn" class="secondary" type="button">返回地图</button></div></section>
+</main><div id="toast" class="toast" role="status"></div>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id)};
+  var LEVEL_KEY='tenseMixUnlocked';
+  var levels=[
+    {id:'clues',title:'第一关：线索分类',icon:'🔎',desc:'看时间线索，判断使用哪种时态。',questions:[
+      {cue:'Every day',prompt:'She ___ to school every day.',options:['一般现在时','现在进行时'],answer:0,explain:'Every day 表示每天的习惯，所以用一般现在时：She walks to school every day.'},
+      {cue:'Look!',prompt:'Look! The dog ___.',options:['一般现在时','现在进行时'],answer:1,explain:'Look! 提醒我们动作正在发生，所以用现在进行时：The dog is running.'},
+      {cue:'usually',prompt:'I usually ___ pop music.',options:['一般现在时','现在进行时'],answer:0,explain:'usually 表示通常的习惯，所以用一般现在时：I usually listen to pop music.'},
+      {cue:'at the moment',prompt:'Bella ___ her dinner at the moment.',options:['一般现在时','现在进行时'],answer:1,explain:'at the moment 表示此刻正在发生，所以用现在进行时：Bella is having her dinner.'},
+      {cue:'a state',prompt:'I ___ (think) your idea is great.',options:['一般现在时','现在进行时'],answer:0,explain:'think 表示想法或状态时通常用一般现在时：I think your idea is great.'},
+      {cue:'often',prompt:'We often ___ football after school.',options:['一般现在时','现在进行时'],answer:0,explain:'often 表示经常发生的事情，所以用一般现在时：We often play football.'},
+      {cue:'now',prompt:'Listen! Olivia ___ the guitar now.',options:['一般现在时','现在进行时'],answer:1,explain:'now 表示正在发生，所以用现在进行时：Olivia is playing the guitar.'},
+      {cue:'a state',prompt:'Emma ___ (know) my sister very well.',options:['一般现在时','现在进行时'],answer:0,explain:'know 是状态动词，通常不用进行时：Emma knows my sister very well.'}
+    ]},
+    {id:'forms',title:'第二关：句子选择',icon:'🧩',desc:'选择结构正确、意思合适的句子。',questions:[
+      {cue:'Listen!',prompt:'Listen! Olivia ___ the guitar.',options:['plays','is playing'],answer:1,explain:'Listen! 表示动作正在发生，用 is playing。'},
+      {cue:'usually',prompt:'I ___ wear jeans.',options:["don't usually wear","am not usually wearing"],answer:0,explain:"usually 表示习惯，否定句用 don't + 动词原形。"},
+      {cue:'know = state',prompt:'___ you ___ my sister?',options:['Do / know','Are / knowing'],answer:0,explain:'know 是状态动词，一般疑问句用 Do you know...?'},
+      {cue:'this week',prompt:'We ___ a great time on holiday this week.',options:['have','are having'],answer:1,explain:'this week 表示这一段时间正在经历的事情，用 are having。'},
+      {cue:'understand = state',prompt:'I ___ this question.',options:["don't understand","am not understanding"],answer:0,explain:'understand 表示理解的状态，通常用一般现在时。'},
+      {cue:'at the moment',prompt:'She ___ her dinner at the moment.',options:['has','is having'],answer:1,explain:'at the moment 表示此刻，使用 is having。'},
+      {cue:'third person',prompt:'My brother ___ TV every evening.',options:['watch','watches'],answer:1,explain:'every evening 表示习惯；my brother 是第三人称单数，动词加 -es。'},
+      {cue:'now',prompt:'They ___ a new song now.',options:['learn','are learning'],answer:1,explain:'now 表示正在发生，使用 are learning。'}
+    ]},
+    {id:'detective',title:'第三关：情境挑战',icon:'🕵️',desc:'在校园时装秀和日常对话中找出正确答案。',questions:[
+      {cue:'Fashion Show',prompt:'George ___ a suit today.',options:['wears','is wearing'],answer:1,explain:'今天的时装秀正在进行，使用 is wearing。'},
+      {cue:'routine',prompt:'Jake says: “You usually ___ jeans.”',options:['wear','are wearing'],answer:0,explain:'usually 表示平时的习惯，使用动词原形 wear。'},
+      {cue:'now',prompt:'Madison: “What ___ you ___, George?”',options:['do / wear','are / wearing'],answer:1,explain:'询问现在正在穿什么，用 Are you wearing...?'},
+      {cue:'state',prompt:'George: “I ___ you look great.”',options:['think','am thinking'],answer:0,explain:'think 表示观点时是状态动词，使用一般现在时。'},
+      {cue:'Look!',prompt:'Look! The models ___ on the stage.',options:['walk','are walking'],answer:1,explain:'Look! 表示眼前正在发生的动作，使用 are walking。'},
+      {cue:'often',prompt:'Our class often ___ shows at school.',options:['has','is having'],answer:0,explain:'often 表示经常发生的习惯，class 看作单数，使用 has。'},
+      {cue:'question',prompt:'“___ your dad often ___ a hat?”',options:['Does / wear','Is / wearing'],answer:0,explain:'often 表示习惯；第三人称一般疑问句用 Does + 动词原形。'},
+      {cue:'this week',prompt:'“Why is Bella busy?” “She ___ for the show this week.”',options:['practises','is practising'],answer:1,explain:'this week 表示这一阶段正在进行的活动，使用 is practising。'},
+      {cue:'understand',prompt:'“Can you help me?” “Sorry, I ___ this question.”',options:["don't understand","am not understanding"],answer:0,explain:'understand 是状态动词，通常使用一般现在时。'},
+      {cue:'at the moment',prompt:'“Can Jake talk?” “No. He ___ lunch at the moment.”',options:['has','is having'],answer:1,explain:'at the moment 表示现在正在吃午饭，使用 is having。'}
+    ]}
+  ];
+  var bridge={classes:[],currentClassId:'',students:[],studentId:''};
+  var state={level:0,questions:[],index:0,correct:0,score:0,totalScore:0,wrong:[],wrongSrc:[],retry:false,locked:false,tick:null,advance:null,submitted:{}};
+  var soundOn=localStorage.getItem('tenseMixSound')!=='off',audioCtx=null,toastTimer=null;
+  function inFrame(){return window.parent&&window.parent!==window}
+  function send(type,payload){try{window.parent.postMessage(Object.assign({type:type},payload||{}),'*')}catch(e){}}
+  function showToast(text){var el=$('toast');el.textContent=text;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.remove('show')},2200)}
+  function beep(kind){if(!soundOn)return;try{audioCtx=audioCtx||(window.AudioContext?new AudioContext():new webkitAudioContext());if(audioCtx.state==='suspended')audioCtx.resume();var o=audioCtx.createOscillator(),g=audioCtx.createGain(),n=audioCtx.currentTime;o.connect(g);g.connect(audioCtx.destination);o.type=kind==='bad'?'triangle':'sine';o.frequency.setValueAtTime(kind==='good'?660:kind==='bad'?230:430,n);if(kind==='good')o.frequency.exponentialRampToValueAtTime(1040,n+0.16);if(kind==='click')o.frequency.exponentialRampToValueAtTime(520,n+0.08);g.gain.setValueAtTime(0.045,n);g.gain.exponentialRampToValueAtTime(0.001,n+(kind==='good'?0.28:0.12));o.start(n);o.stop(n+(kind==='good'?0.3:0.14))}catch(e){}}
+  function applyBridgeData(data){data=data||{};bridge.classes=Array.isArray(data.classes)?data.classes:[];bridge.currentClassId=data.currentClassId||'';bridge.students=Array.isArray(data.students)?data.students:[];renderBridge()}
+  function renderBridge(){var cs=$('classSelect'),ss=$('studentSelect');cs.innerHTML='<option value="">选择班级</option>';bridge.classes.forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(c.id===bridge.currentClassId)o.selected=true;cs.appendChild(o)});ss.innerHTML='<option value="">请选择学生</option>';bridge.students.forEach(function(s){var o=document.createElement('option');o.value=s.id;o.textContent=(s.avatar?s.avatar+' ':'')+s.name;if(s.id===bridge.studentId)o.selected=true;ss.appendChild(o)});var note=$('studentNote');if(bridge.studentId){note.className='student-note ok';note.textContent='✅ 当前挑战学生：'+((bridge.students.find(function(s){return s.id===bridge.studentId})||{}).name||'已选择')}else{note.className='student-note warn';note.textContent='👤 请先选择一名学生，再开始挑战。'}}
+  function requestData(){send('tensemix:requestData')}
+  function getUnlocked(){var n=parseInt(localStorage.getItem(LEVEL_KEY)||'1',10);return Math.max(1,Math.min(levels.length,Number.isFinite(n)?n:1))}
+  function setUnlocked(n){localStorage.setItem(LEVEL_KEY,String(Math.max(1,Math.min(levels.length,n))))}
+  function renderMap(){var host=$('levelGrid');host.innerHTML='';var unlocked=getUnlocked();levels.forEach(function(level,i){var card=document.createElement('article');card.className='level'+(i+1>unlocked?' locked':'');var top=document.createElement('div');top.className='level-top';var icon=document.createElement('span');icon.className='level-icon';icon.textContent=level.icon;var st=document.createElement('span');st.className='level-state';st.textContent=i+1<=unlocked?'已解锁':'🔒 未解锁';top.append(icon,st);var h=document.createElement('h4');h.textContent=level.title;var p=document.createElement('p');p.textContent=level.desc;var b=document.createElement('button');b.type='button';b.className='start-level';b.textContent=i+1>unlocked?'完成上一关后解锁':'开始挑战';b.disabled=i+1>unlocked;b.addEventListener('click',function(){beep('click');startLevel(i,false)});card.append(top,h,p,b);host.appendChild(card)})}
+  function shuffle(list){var a=list.slice(),i,j,t;for(i=a.length-1;i>0;i--){j=Math.floor(Math.random()*(i+1));t=a[i];a[i]=a[j];a[j]=t}return a}
+  function prepareQuestions(list){var qs=shuffle(list),slots=[],i;for(i=0;i<qs.length;i++)slots.push(i%2);slots=shuffle(slots);return qs.map(function(q,k){var n=q.options.length,target=slots[k]%n,others=[],order=[],p=0,j;for(j=0;j<n;j++)if(j!==q.answer)others.push(j);others=shuffle(others);for(j=0;j<n;j++)order.push(j===target?q.answer:others[p++]);return{src:q,cue:q.cue,prompt:q.prompt,options:order.map(function(x){return q.options[x]}),answer:target,explain:q.explain}})}
+  function clearTimers(){if(state.tick){clearInterval(state.tick);state.tick=null}if(state.advance){clearTimeout(state.advance);state.advance=null}}
+  function showView(id){['mapView','gameView','resultView'].forEach(function(v){$(v).classList.toggle('hidden',v!==id)})}
+  function updateStats(){var total=state.questions.length;$('questionStat').textContent=(state.index+1)+' / '+total;$('scoreStat').textContent='⭐ '+state.score;$('progressBar').style.width=(total?Math.round(state.index/total*100):0)+'%'}
+  function startLevel(index,retry){if(inFrame()&&!bridge.studentId){showToast('请先选择一名学生');return}if(!retry&&index+1>getUnlocked())return;clearTimers();var source=(retry&&state.wrongSrc&&state.wrongSrc.length)?state.wrongSrc.slice():levels[index].questions;state.level=index;state.retry=!!retry;state.questions=prepareQuestions(source);state.index=0;state.correct=0;state.score=0;state.wrong=[];state.wrongSrc=[];state.locked=false;$('gameTitle').textContent=levels[index].title+(retry?' · 错题复习':'');showView('gameView');renderQuestion()}
+  function fitPrompt(){var el=$('prompt');if(!el)return;var host=el.parentNode,hs=window.getComputedStyle(host);var avail=host.clientWidth-(parseFloat(hs.paddingLeft)||0)-(parseFloat(hs.paddingRight)||0);el.style.fontSize='';el.style.whiteSpace='nowrap';var cs=window.getComputedStyle(el),base=parseFloat(cs.fontSize)||30,mw=parseFloat(cs.maxWidth);var cap=Math.max(80,Math.min(avail,isFinite(mw)?mw:avail)-2);var min=Math.max(17,Math.round(base*0.7)),size=base;while(size>min&&el.getBoundingClientRect().width>cap){size-=1;el.style.fontSize=size+'px'}if(el.getBoundingClientRect().width>cap){el.style.whiteSpace='normal';el.style.fontSize=Math.max(min,Math.round(base*0.85))+'px'}}
+  function renderQuestion(){var q=state.questions[state.index];if(!q){finishLevel();return}state.locked=false;$('cue').textContent=q.cue;$('prompt').textContent=q.prompt;$('feedback').className='feedback';$('feedback').textContent='';$('options').innerHTML='';updateStats();var opts=q.options.slice();opts.forEach(function(opt,i){var b=document.createElement('button');b.type='button';b.className='option';b.textContent=opt;b.dataset.answer=String(i);b.addEventListener('click',function(){beep('click');answer(i,b)});$('options').appendChild(b)});fitPrompt();startTimer()}
+  function startTimer(){clearTimers();var left=10;$('timerStat').textContent=left;$('timerBar').style.width='100%';$('timerBar').classList.remove('urgent');state.tick=setInterval(function(){left-=1;$('timerStat').textContent=Math.max(left,0);$('timerBar').style.width=Math.max(0,left/10*100)+'%';if(left<=3)$('timerBar').classList.add('urgent');if(left<=0){clearTimers();timeUp()}},1000)}
+  function lockQuestion(){state.locked=true;clearTimers();Array.prototype.forEach.call($('options').children,function(b){b.disabled=true})}
+  function recordWrong(q){state.wrong.push({prompt:q.prompt,answer:q.options[q.answer],explain:q.explain});if(q.src&&state.wrongSrc.indexOf(q.src)<0)state.wrongSrc.push(q.src)}
+  function answer(choice,chosen){if(state.locked)return;lockQuestion();var q=state.questions[state.index],buttons=Array.prototype.slice.call($('options').children),correct=choice===q.answer;buttons[q.answer].classList.add('correct');if(!correct){chosen.classList.add('wrong');recordWrong(q);beep('bad')}else{state.correct+=1;state.score+=5;beep('good')}updateStats();var fb=$('feedback');fb.className='feedback '+(correct?'good':'bad');fb.innerHTML=(correct?'✅ Great job! ':'💡 Let’s learn it! 正确答案：<b>'+q.options[q.answer]+'</b><br>')+q.explain;state.advance=setTimeout(function(){state.index+=1;renderQuestion()},900)}
+  function timeUp(){if(state.locked)return;lockQuestion();var q=state.questions[state.index],buttons=Array.prototype.slice.call($('options').children);buttons[q.answer].classList.add('correct');recordWrong(q);updateStats();var fb=$('feedback');fb.className='feedback bad';fb.innerHTML='⏰ 时间到！正确答案：<b>'+q.options[q.answer]+'</b><br>'+q.explain;beep('bad');state.advance=setTimeout(function(){state.index+=1;renderQuestion()},900)}
+  function finishLevel(){clearTimers();var total=state.questions.length,rate=total?state.correct/total:0,passed=rate>=.8,level=levels[state.level],unlocked=getUnlocked();if(passed&&!state.retry){state.totalScore+=state.score;if(state.level+2>unlocked)setUnlocked(state.level+2);if(!state.submitted[state.level]&&state.score>0){state.submitted[state.level]=true;send('tensemix:addScore',{studentId:bridge.studentId,score:state.score})}}if(!state.retry&&state.wrong.length)send('tensemix:addWrongItems',{studentId:bridge.studentId,level:level.title,items:state.wrong.map(function(w){return w.prompt+' → '+w.answer})});renderMap();showView('resultView');$('resultBadge').textContent=passed?(state.level===levels.length-1?'🏆':'🎉'):'💪';$('resultTitle').textContent=passed?(state.level===levels.length-1?'全部挑战完成！':'关卡完成！'):'再试一次，你可以的！';$('resultText').textContent='答对 '+state.correct+' / '+total+' 题，正确率 '+Math.round(rate*100)+'%。'+(passed?(state.level===levels.length-1?' 你已经掌握两种时态的区别！':' 已解锁下一关！'):' 需要达到 80% 才能解锁下一关。');$('resultScore').textContent='⭐ 本关得分 '+state.score+(state.retry?'（错题复习不重复计分）':'');var review=$('wrongReview');if(state.wrong.length){review.className='wrong-review';review.innerHTML='<strong>📚 本轮复习：</strong><br>'+state.wrong.map(function(w){return '• '+w.prompt+' → '+w.answer}).join('<br>')}else{review.className='wrong-review hidden';review.textContent=''}var next=$('resultNextBtn');next.textContent=state.retry?'返回地图':(passed?(state.level===levels.length-1?'再玩一次':'继续下一关'):'重新挑战');next.onclick=function(){beep('click');if(state.retry){showView('mapView');renderMap();return}if(passed&&state.level<levels.length-1)startLevel(state.level+1,false);else if(state.level===levels.length-1&&passed){state.submitted={};state.totalScore=0;startLevel(0,false)}else startLevel(state.level,false)};$('resultWrongBtn').classList.toggle('hidden',state.wrong.length===0||state.retry);$('resultWrongBtn').onclick=function(){beep('click');startLevel(state.level,true)};$('resultMapBtn').onclick=function(){beep('click');showView('mapView');renderMap()};beep(passed?'good':'bad')}
+  function resetGame(){if(!window.confirm('确定要重新锁定所有关卡并清除本机解锁进度吗？'))return;clearTimers();localStorage.removeItem(LEVEL_KEY);state.submitted={};state.totalScore=0;showView('mapView');renderMap();showToast('关卡进度已重置')}
+  $('classSelect').addEventListener('change',function(){bridge.currentClassId=this.value;bridge.studentId='';send('tensemix:switchClass',{classId:this.value});renderBridge()});$('studentSelect').addEventListener('change',function(){bridge.studentId=this.value;renderBridge()});$('soundBtn').addEventListener('click',function(){soundOn=!soundOn;localStorage.setItem('tenseMixSound',soundOn?'on':'off');this.textContent=soundOn?'🔊 音效':'🔇 静音';beep('click')});$('restartBtn').addEventListener('click',resetGame);window.addEventListener('resize',function(){if(!$('gameView').classList.contains('hidden'))fitPrompt()});window.addEventListener('message',function(e){var msg=e&&e.data;if(msg&&msg.type==='tensemix:data')applyBridgeData(msg.payload)});renderMap();$('soundBtn').textContent=soundOn?'🔊 音效':'🔇 静音';requestData();
+})();
+<\/script></body></html>`;
+
         window._quantityHtml = `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -4907,6 +5073,18 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             modal.classList.add('show');
         }
 
+        function openTenseMixModal() {
+            const modal = document.getElementById('tense-mix-modal');
+            const iframe = document.getElementById('tense-mix-iframe');
+            iframe.onload = function() {
+                try {
+                    iframe.contentWindow.postMessage({ type: 'tensemix:data', payload: getTenseMixBridgeData() }, '*');
+                } catch (e) {}
+            };
+            iframe.srcdoc = window._tenseMixHtml || '';
+            modal.classList.add('show');
+        }
+
         function openQuantityModal() {
             const modal = document.getElementById('quantity-modal');
             const iframe = document.getElementById('quantity-iframe');
@@ -4955,6 +5133,10 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
             }
             if(id === 'pc-modal') {
                 const f = document.getElementById('pc-iframe');
+                if(f) f.srcdoc = '';
+            }
+            if(id === 'tense-mix-modal') {
+                const f = document.getElementById('tense-mix-iframe');
                 if(f) f.srcdoc = '';
             }
             if(id === 'quantity-modal') {
@@ -7241,6 +7423,7 @@ document.body.classList.add('home-view');   // 初始即首页，启用居中布
     <div class="modal-overlay tool-modal" id="ket-verb-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('ket-verb-modal')">✕</button> <iframe id="ket-verb-iframe" class="tool-iframe" title="KET不规则动词消消乐" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="tense-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-modal')">✕</button> <iframe id="tense-iframe" class="tool-iframe" title="一般现在时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="pc-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('pc-modal')">✕</button> <iframe id="pc-iframe" class="tool-iframe" title="现在进行时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="tense-mix-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-mix-modal')">✕</button> <iframe id="tense-mix-iframe" class="tool-iframe" title="时态小侦探：一般现在时与现在进行时综合挑战" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="quantity-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('quantity-modal')">✕</button> <iframe id="quantity-iframe" class="tool-iframe" title="数量与名词闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     
     <div class="modal-overlay attendance-fullscreen-modal" id="attendance-modal-container" data-attendance-theme="peach">
