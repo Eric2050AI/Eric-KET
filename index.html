@@ -27,7 +27,7 @@
         const VOCAB_LOCAL_KEYS = { dictation: 'dictation_vocab', matchgame: 'dictation_vocab', ketverb: 'ketverb_vocab' };
         const VOCAB_LEGACY_MATCH_KEY = 'matchgame_vocab';
         const GAME_PIN_STORAGE_KEY = 'englishClassPinnedGames';
-        const DEFAULT_PINNED_GAMES = ['wheel','timer','dice','attendance'];
+        const DEFAULT_PINNED_GAMES = ['wheel','timer','dice','attendance','too-enough'];
         const GAME_DEFINITIONS = [
             { id:'wheel', group:'课堂互动', name:'幸运转盘', icon:'🎰', color:'var(--btn-blue)', action:'openWheelModal' },
             { id:'timer', group:'课堂互动', name:'倒计时', icon:'⏳', color:'var(--btn-cyan)', action:'openTimerModal' },
@@ -40,7 +40,8 @@
             { id:'tense-rescue', group:'英语练习', name:'一般现在时闯关', icon:'🕐', color:'var(--btn-pink)', action:'openTenseModal' },
             { id:'pc-rescue', group:'英语练习', name:'现在进行时闯关', icon:'🚀', color:'var(--btn-green)', action:'openPcModal' },
             { id:'tense-mix', group:'英语练习', name:'时态小侦探', icon:'🕵️', color:'var(--btn-blue)', action:'openTenseMixModal' },
-            { id:'quantity-rescue', group:'英语练习', name:'数量与名词闯关', icon:'🛒', color:'var(--btn-gold)', action:'openQuantityModal' }
+            { id:'quantity-rescue', group:'英语练习', name:'数量与名词闯关', icon:'🛒', color:'var(--btn-gold)', action:'openQuantityModal' },
+            { id:'too-enough', group:'英语练习', name:'too / enough 帽子店挑战', icon:'🎩', color:'var(--btn-cyan)', action:'openTooEnoughModal' }
         ];
 
         function getPinnedGameIds(){
@@ -498,7 +499,7 @@
         function openClassModal(){ renderClassList(); renderArchivedList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
-        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); }catch(e){} }
+        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); const teif=document.getElementById('too-enough-iframe'); if(teif&&teif.contentWindow) teif.contentWindow.postMessage({type:'tooenough:data',payload:getTooEnoughBridgeData()},'*'); }catch(e){} }
         function renameClass(id){ let cls=allClasses[id]; let name=prompt('新名称',cls.name); if(name&&name.trim()){ cls.name=name.trim(); saveAllClasses(); updateClassTitle(); renderClassList(); } }
         async function deleteClass(id){ const cls = allClasses[id]; if(!cls) return; if(!confirm(`⚠ 确定要删除班级「${cls.name}」吗？\n班级内 ${cls.students.length} 名学生数据将全部删除，不可恢复！`)) return; if (currentClassId === id) { const otherIds = Object.keys(allClasses).filter(k => k !== id); if (otherIds.length > 0) { currentClassId = otherIds[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } } delete allClasses[id]; historyStack = []; saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); if (isCloudMode) { markClassAsDeleted(id); try { await deleteClassFromCloud(id); clearDeleteMark(id); updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); } } }
         
@@ -718,6 +719,27 @@
                 window.quantityAPI.addQuantityWrongItems(msg.studentId, msg.level, msg.items);
                 return;
             }
+            if (msg.type === 'tooenough:requestData') {
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'tooenough:data', payload: getTooEnoughBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'tooenough:switchClass') {
+                switchClass(msg.classId);
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'tooenough:data', payload: getTooEnoughBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'tooenough:addScore') {
+                window.tooEnoughAPI.addTooEnoughScore(msg.studentId, msg.score);
+                return;
+            }
+            if (msg.type === 'tooenough:addWrongItems') {
+                window.tooEnoughAPI.addTooEnoughWrongItems(msg.studentId, msg.level, msg.items);
+                return;
+            }
         });
 
         window.matchGameAPI = {
@@ -779,6 +801,7 @@
                 if (!studentId || list.length === 0) return false;
                 const s = getStudents().find(st => st.id === studentId);
                 if (!s) return false;
+                saveStateToHistory();
                 const t = new Date();
                 const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
                 const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
@@ -816,6 +839,7 @@
                 if (!studentId || list.length === 0) return false;
                 const s = getStudents().find(st => st.id === studentId);
                 if (!s) return false;
+                saveStateToHistory();
                 const t = new Date();
                 const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
                 const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
@@ -853,6 +877,7 @@
                 if (!studentId || list.length === 0) return false;
                 const s = getStudents().find(st => st.id === studentId);
                 if (!s) return false;
+                saveStateToHistory();
                 const t = new Date();
                 const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
                 const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
@@ -890,6 +915,7 @@
                 if (!studentId || list.length === 0) return false;
                 const s = getStudents().find(st => st.id === studentId);
                 if (!s) return false;
+                saveStateToHistory();
                 const t = new Date();
                 const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
                 const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
@@ -907,6 +933,44 @@
                 classes: window.quantityAPI.getClasses(),
                 currentClassId: window.quantityAPI.getCurrentClassId(),
                 students: window.quantityAPI.getStudents()
+            };
+        }
+
+        window.tooEnoughAPI = {
+            getClasses: () => Object.keys(allClasses).map(id => ({ id, name: allClasses[id]?.name || '未命名' })),
+            getCurrentClassId: () => currentClassId,
+            getStudents: () => getActiveStudents().map(s => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score })),
+            switchClass: (id) => switchClass(id),
+            addTooEnoughScore: (studentId, score) => {
+                const val = parseInt(score, 10);
+                if (!studentId || !Number.isFinite(val) || val === 0) return false;
+                selectCategoryButton('互动');
+                updateScore(studentId, val);
+                return true;
+            },
+            addTooEnoughWrongItems: (studentId, level, items) => {
+                const list = Array.isArray(items) ? items.map(w => String(w || '').trim()).filter(Boolean) : [];
+                if (!studentId || list.length === 0) return false;
+                const s = getStudents().find(st => st.id === studentId);
+                if (!s) return false;
+                saveStateToHistory();
+                const t = new Date();
+                const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+                const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+                const cat = 'too / enough 闯关错题' + (level ? ('·' + level) : '');
+                getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
+                while (getLogs().length > 200) getLogs().pop();
+                saveAllClasses();
+                saveData();
+                return true;
+            }
+        };
+
+        function getTooEnoughBridgeData() {
+            return {
+                classes: window.tooEnoughAPI.getClasses(),
+                currentClassId: window.tooEnoughAPI.getCurrentClassId(),
+                students: window.tooEnoughAPI.getStudents()
             };
         }
 
@@ -5097,6 +5161,174 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
             modal.classList.add('show');
         }
 
+        // too / enough 帽子店挑战 HTML（内嵌）
+        window._tooEnoughHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="description" content="KET U4 too and enough grammar classroom challenge">
+  <title>Too / Enough 帽子店挑战</title>
+  <style>
+    :root{--ink:#28445c;--muted:#6c8190;--cream:#fffaf1;--paper:#fff;--sky:#5ca8e8;--mint:#55c6b5;--peach:#f5a574;--coral:#ef8c84;--yellow:#f4c85f;--lav:#a99be8;--line:#e6edf0;--shadow:0 14px 34px rgba(56,83,102,.13)}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:"Avenir Next","Trebuchet MS","Microsoft YaHei",sans-serif;color:var(--ink);background:linear-gradient(135deg,#fffdf8 0%,#f4fbfb 100%)}
+    body{padding:22px 20px 34px}.app{width:min(1180px,100%);margin:auto}.topbar{display:flex;gap:18px;align-items:center;justify-content:space-between;margin-bottom:18px}.brand{display:flex;align-items:center;gap:13px}.brand-mark{width:62px;height:62px;border-radius:22px 22px 22px 8px;background:var(--yellow);display:grid;place-items:center;font-size:34px;box-shadow:0 8px 0 #eab04b;transform:rotate(-3deg)}.brand h1{margin:0;font-size:clamp(24px,4vw,40px);line-height:1.05;letter-spacing:-1px}.brand p{margin:5px 0 0;color:var(--muted);font-size:14px;font-weight:700}.tools{display:flex;gap:8px;align-items:center}.icon-btn,.plain-btn{border:0;border-radius:16px;background:#fff;color:var(--ink);box-shadow:0 4px 14px rgba(41,69,91,.1);font:inherit;font-weight:800;cursor:pointer;min-height:48px;padding:0 15px}.icon-btn{width:52px;padding:0;font-size:23px}.plain-btn{background:#edf8f7}.icon-btn:active,.plain-btn:active,.primary:active,.option:active,.level:active,.token:active,.gift:active,.reason:active{transform:translateY(2px)}button:focus-visible,select:focus-visible{outline:4px solid rgba(92,168,232,.35);outline-offset:2px}
+    .card{background:rgba(255,255,255,.96);border:1px solid rgba(220,232,235,.9);border-radius:28px;box-shadow:var(--shadow);padding:clamp(20px,3vw,34px)}.setup{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:stretch}.story{position:relative;overflow:hidden;background:linear-gradient(145deg,#e7f8f7,#fff6e6);min-height:290px}.story h2{font-size:clamp(28px,4vw,48px);line-height:1.05;margin:0 0 12px;max-width:500px}.story p{max-width:520px;color:var(--muted);line-height:1.65;font-weight:650;margin:0}.story-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}.badge{display:inline-flex;align-items:center;gap:5px;padding:9px 12px;border-radius:999px;font-size:13px;font-weight:800;background:#fff}.shop-art{position:absolute;right:24px;bottom:10px;width:230px;height:180px}.shop-awning{position:absolute;top:20px;left:30px;width:175px;height:35px;border-radius:14px 14px 0 0;background:repeating-linear-gradient(90deg,#ef8c84 0 25px,#fff6e6 25px 50px)}.shop-window{position:absolute;left:48px;top:55px;width:145px;height:100px;border:7px solid #315a73;border-radius:15px;background:#ccecf0;display:grid;place-items:center;font-size:74px}.shop-door{position:absolute;left:185px;top:58px;width:42px;height:97px;border-radius:12px 12px 0 0;background:#b59ce9;border:5px solid #315a73}.shop-door:after{content:"•";color:#f4c85f;position:absolute;right:5px;top:38px;font-size:22px}.cloud{position:absolute;width:110px;height:32px;right:10px;top:0;background:#fff;border-radius:50px;opacity:.8}.cloud:before,.cloud:after{content:"";position:absolute;background:#fff;border-radius:50%}.cloud:before{width:48px;height:48px;left:20px;bottom:6px}.cloud:after{width:62px;height:62px;right:13px;bottom:3px}
+    .setup-panel{display:flex;flex-direction:column;justify-content:center}.setup-panel h3{margin:0 0 8px;font-size:23px}.setup-panel .hint{margin:0 0 16px}.field{display:flex;flex-direction:column;gap:7px;margin:0 0 14px}.field label{font-size:13px;font-weight:900;color:var(--muted)}select{width:100%;min-height:52px;border:2px solid var(--line);border-radius:16px;background:#fff;color:var(--ink);font:inherit;font-weight:800;padding:0 14px}.primary{border:0;border-radius:18px;background:linear-gradient(135deg,var(--sky),#438fce);color:#fff;min-height:56px;font:inherit;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 7px 0 #397eb4;margin-top:7px}.primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}.hint{color:var(--muted);font-size:14px;font-weight:700}.hint.ready{color:#2d9d87}.rule-strip{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.rule-pill{padding:11px 15px;border-radius:15px;font-weight:900;background:#fff3da}.rule-pill:nth-child(2){background:#e5f7f4}.rule-pill:nth-child(3){background:#eeeaff}
+    .map-card{margin-top:22px}.map-head,.game-head,.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.map-head h2,.result-head h2{margin:0;font-size:28px}.map-head p,.result-head p{margin:7px 0 0;color:var(--muted);font-weight:700}.unlock{background:#fff4d4;color:#9a6d13;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;white-space:nowrap}.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:22px}.level{border:0;border-radius:21px;background:#edf8f7;color:var(--ink);min-height:140px;padding:17px;text-align:left;cursor:pointer;box-shadow:0 5px 0 #c6e9e4;font:inherit}.level:nth-child(2){background:#edf5fe;box-shadow:0 5px 0 #c7def5}.level:nth-child(3){background:#fff1e7;box-shadow:0 5px 0 #f5d1b5}.level:nth-child(4){background:#f0edff;box-shadow:0 5px 0 #d7cef9}.level.locked{filter:grayscale(.8);opacity:.48;cursor:not-allowed;box-shadow:none}.level .icon{display:block;font-size:32px;margin-bottom:10px}.level strong{display:block;font-size:16px}.level small{display:block;margin-top:5px;color:var(--muted);font-weight:700;line-height:1.35}.game-card{margin-top:22px}.game-head{align-items:center}.level-kicker{color:var(--sky);font-size:13px;font-weight:900;letter-spacing:.4px}.game-title{margin:4px 0 0;font-size:clamp(23px,3vw,34px)}.stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.stat{min-width:76px;padding:10px 11px;border-radius:15px;background:#f4f8fa;text-align:center;font-size:13px;font-weight:900}.stat strong{display:block;font-size:18px;margin-top:2px}.timer{background:#fff4d5;color:#956b18}.timer.urgent{background:#ffe1dd;color:#b3544b}.timer.paused{background:#e9e4fb;color:#6858a6}.progress-shell{height:13px;background:#edf1f3;border-radius:999px;margin:19px 0 24px;overflow:hidden}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--sky));border-radius:999px;transition:width .25s ease}.question-wrap{min-height:270px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}.question-tag{font-size:13px;color:var(--muted);font-weight:900;margin-bottom:12px}.question{font-size:clamp(24px,4vw,42px);font-weight:900;line-height:1.25;max-width:900px;margin:0}.question .blank{display:inline-block;min-width:94px;border-bottom:4px dotted var(--peach);color:var(--peach)}.options{width:min(870px,100%);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:24px}.option,.reason,.gift,.token{border:3px solid #e5edf0;border-radius:18px;background:#fff;color:var(--ink);min-height:62px;padding:11px 14px;font:inherit;font-size:18px;font-weight:850;cursor:pointer;box-shadow:0 4px 0 #e6edf0}.option:hover,.reason:hover,.gift:hover,.token:hover{border-color:#9ed9d0;background:#fbfffe}.option.correct,.reason.correct,.gift.correct{border-color:#48b69d;background:#e8faf5;box-shadow:0 4px 0 #b8e8dc}.option.wrong,.reason.wrong,.gift.wrong{border-color:#ee9a91;background:#fff0ee;box-shadow:0 4px 0 #f4c9c4}.feedback{width:min(850px,100%);min-height:54px;margin-top:18px;border-radius:16px;padding:12px 16px;text-align:left;line-height:1.5;font-size:15px;font-weight:750;display:none}.feedback.show{display:block}.feedback.good{background:#e8faf5;color:#267d6b}.feedback.bad{background:#fff0ee;color:#a5534b}.feedback strong{font-weight:950}.action-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}.next-btn,.map-btn,.retry-btn{border:0;border-radius:15px;min-height:50px;padding:0 20px;color:#fff;background:var(--sky);font:inherit;font-weight:900;cursor:pointer}.map-btn{background:var(--mint)}.retry-btn{background:var(--peach)}.sentence-builder{width:min(900px,100%);margin-top:22px}.sentence-slots{min-height:67px;border:3px dashed #b8deda;border-radius:18px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;background:#f9fffe}.sentence-slots.empty:after{content:"点击下方词卡组成句子";color:#a2b7bd;font-weight:800;font-size:14px}.selected-token{border:0;border-radius:12px;padding:10px 13px;background:#dff5ef;color:#246e62;font:inherit;font-weight:900;cursor:pointer}.token-bank{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:14px}.token{min-height:49px;padding:8px 14px;background:#fff8e8;border-color:#f4dfad;box-shadow:0 4px 0 #f1e2bf;font-size:16px}.token.used{opacity:.35;cursor:not-allowed}.check-btn{margin-top:16px;border:0;border-radius:15px;min-height:50px;padding:0 22px;background:var(--lav);color:#fff;font:inherit;font-weight:900;cursor:pointer}.gift-stage{width:min(940px,100%);margin-top:20px}.gift-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.gift{min-height:115px;font-size:31px;background:#fff}.gift span,.reason span{display:block;font-size:13px;margin-top:8px}.reason-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}.reason{min-height:70px;font-size:17px}.sub-prompt{color:var(--muted);font-size:15px;font-weight:800;margin-top:9px}.result-card{margin-top:22px;text-align:center}.result-head{justify-content:center;flex-direction:column;align-items:center}.result-icon{font-size:64px;line-height:1}.result-head h2{font-size:34px}.result-score{font-size:48px;font-weight:950;color:var(--sky);margin:10px 0}.wrong-box{max-width:850px;margin:18px auto 0;text-align:left;background:#fff8ef;border-radius:18px;padding:15px 18px;color:#765b3b;line-height:1.65}.wrong-box h3{margin:0 0 8px;font-size:17px}.wrong-box ul{margin:0;padding-left:20px}.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:#294d64;color:#fff;padding:13px 18px;border-radius:14px;box-shadow:var(--shadow);font-weight:850;opacity:0;pointer-events:none;transition:.2s;z-index:5}.toast.show{opacity:1;transform:translate(-50%,0)}.hidden{display:none!important}.pop{animation:pop .32s ease}@keyframes pop{0%{transform:scale(.94);opacity:.3}100%{transform:scale(1);opacity:1}}@media(max-width:850px){body{padding:15px 12px 28px}.setup{grid-template-columns:1fr}.story{min-height:245px}.shop-art{transform:scale(.8);transform-origin:right bottom;right:-15px}.levels{grid-template-columns:repeat(2,1fr)}.stats{justify-content:flex-start}.game-head{display:block}.stats{margin-top:14px}.question-wrap{min-height:300px}.gift-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.brand-mark{width:52px;height:52px;font-size:28px;border-radius:18px}.brand h1{font-size:25px}.brand p{font-size:12px}.tools .plain-btn{display:none}.levels{gap:9px}.level{min-height:122px;padding:13px}.level .icon{font-size:27px}.options,.reason-grid{grid-template-columns:1fr}.question{font-size:27px}.question-wrap{min-height:330px}.gift{min-height:100px}.shop-art{opacity:.7;transform:scale(.65);right:-36px;bottom:-14px}}
+    /* 选项：大屏一行排开，按钮内文字也不折行（字号自适应缩小）；窄屏才降为单列。 */
+    .options{width:min(1020px,100%);grid-template-columns:repeat(var(--option-count,2),minmax(0,1fr))}
+    .option,.reason{white-space:nowrap;overflow:hidden;text-overflow:clip}
+    .action-row:empty{display:none}
+    @media(max-width:760px){.options{grid-template-columns:1fr}.option,.reason{white-space:normal}}
+    /* 关卡地图上的班级 / 学生选择条，方便课堂中途换人 */
+    .picker-bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-top:20px;padding:15px 17px;border-radius:20px;background:#f5fbfa;border:1px solid #e3f0ee}
+    .picker-field{display:flex;flex-direction:column;gap:6px;flex:1 1 200px;min-width:170px}
+    .picker-field label{font-size:12px;font-weight:900;color:var(--muted)}
+    .picker-bar select{min-height:46px}
+    .picker-status{flex:1 1 190px;font-size:14px;font-weight:850;color:var(--muted);padding-bottom:12px}
+    .picker-status.ready{color:#2d9d87}
+    @media(max-width:560px){.picker-status{padding-bottom:0;flex-basis:100%}}
+    /* 题干：优先压字号塞进一行，实在装不下才换行且两行词数均分 */
+    .question{max-width:100%}
+    .question.one-line{white-space:nowrap}
+    .question.wrapped{white-space:normal;text-wrap:balance;max-width:940px}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark">🎩</div><div><h1>Too / Enough</h1><p>U4 帽子店语法挑战 · 课堂闯关</p></div></div>
+      <div class="tools"><button class="plain-btn" id="homeBtn" type="button">🏠 关卡地图</button><button class="icon-btn" id="soundBtn" type="button" aria-label="切换音效">🔊</button></div>
+    </header>
+
+    <section class="card map-card" id="mapCard">
+      <div class="map-head">
+        <div><h2>选择一关</h2><p>从规则侦探开始，最后挑战生日礼物 Boss。每关 5 题 · 每题 10 分 · 达到 80% 解锁下一关。</p></div>
+        <div class="unlock" id="unlockText">已解锁 1 / 4 关</div>
+      </div>
+      <div class="rule-strip"><span class="rule-pill">too + adjective</span><span class="rule-pill">adjective + enough</span><span class="rule-pill">not enough = 不足</span></div>
+      <div class="picker-bar">
+        <div class="picker-field"><label for="classSelect">班级</label><select id="classSelect"><option value="">加载中…</option></select></div>
+        <div class="picker-field"><label for="studentSelect">本轮学生</label><select id="studentSelect"><option value="">请选择学生</option></select></div>
+        <div class="picker-status" id="mapPickerHint">正在连接积分系统…</div>
+      </div>
+      <div class="levels" id="levels"></div>
+    </section>
+
+    <section class="card game-card hidden" id="gameCard">
+      <div class="game-head"><div><div class="level-kicker" id="levelKicker">LEVEL 1</div><h2 class="game-title" id="levelTitle">规则侦探</h2></div><div class="stats"><div class="stat"><span>题目</span><strong id="questionStat">1 / 5</strong></div><div class="stat"><span>本关得分</span><strong id="scoreStat">⭐ 0</strong></div><div class="stat timer" id="timerChip"><span>剩余时间</span><strong id="timerNum">60</strong></div><button class="icon-btn" id="pauseBtn" type="button" aria-label="暂停">Ⅱ</button></div></div>
+      <div class="progress-shell"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="question-wrap" id="questionWrap"><div class="question-tag" id="questionTag">选择正确的词</div><p class="question" id="question"></p><div id="interactiveArea"></div><div class="feedback" id="feedback"></div><div class="action-row"></div></div>
+    </section>
+
+    <section class="card result-card hidden" id="resultCard"><div class="result-head"><div class="result-icon" id="resultIcon">🏆</div><h2 id="resultTitle">关卡完成！</h2><p id="resultText"></p></div><div class="result-score" id="resultScore">⭐ 0</div><div class="wrong-box hidden" id="wrongBox"><h3>需要复习的句子</h3><ul id="wrongList"></ul></div><div class="action-row"><button class="retry-btn hidden" id="retryBtn" type="button">错题复活赛</button><button class="map-btn" id="mapBtn" type="button">返回关卡地图</button></div></section>
+    <div class="toast" id="toast" role="status"></div>
+  </main>
+  <script>
+    'use strict';
+    var bridge={classes:[],currentClassId:null,students:[]};
+    var state={selectedStudentId:null,level:0,questions:[],index:0,correct:0,score:0,wrong:[],isRetry:false,locked:false,awarded:{},sentence:[],gift:null,reason:null};
+    var unlocked=1, soundOn=lsGet('tooEnoughSound')!=='off', timer={left:60,id:null,advance:null,paused:false};
+    var QUESTION_SECONDS=60;
+    var levels=[
+      {icon:'🔎',title:'规则侦探',sub:'too 在前，enough 在后',kind:'choice',questions:[
+        {prompt:'The hat is ___ big.',options:['too','enough'],answer:0,explanation:'too 放在形容词 big 前：too big。'},
+        {prompt:'The hat isn’t big ___.',options:['too','enough'],answer:1,explanation:'enough 放在形容词 big 后：big enough。'},
+        {prompt:'The box is ___ heavy.',options:['too','enough'],answer:0,explanation:'箱子太重，使用 too heavy。'},
+        {prompt:'The jeans aren’t clean ___.',options:['too','enough'],answer:1,explanation:'“不够干净”是 clean enough，否定后为 aren’t clean enough。'},
+        {prompt:'Sam isn’t old ___ to drive.',options:['too','enough'],answer:1,explanation:'old enough to… 表示达到足够的年龄。'}
+      ]},
+      {icon:'🧩',title:'句子拼装',sub:'点击词卡组成完整句子',kind:'order',questions:[
+        {tokens:['The jacket','is','too','expensive','.'],explanation:'too 放在形容词 expensive 前。'},
+        {tokens:['Sam','isn’t','old','enough','to drive','.'],explanation:'enough 放在形容词 old 后。'},
+        {tokens:['This box','is','too','heavy','.'],explanation:'too heavy 表示“太重”。'},
+        {tokens:['The jeans','aren’t','big','enough','.'],explanation:'big enough 表示“足够大”。'},
+        {tokens:['The shoes','aren’t','clean','enough','for me','.'],explanation:'clean enough 表示“足够干净”。'}
+      ]},
+      {icon:'🛒',title:'购物判断',sub:'看情境，选择合适的表达',kind:'choice',questions:[
+        {prompt:'The jacket costs £35. You have £10.',options:["It’s too expensive.","It’s cheap enough.","It’s too cheap."],answer:0,explanation:'价格超出预算，所以说 It’s too expensive.'},
+        {prompt:'These jeans are size 8. Sam needs size 10.',options:["They’re too big.","They aren’t big enough.","They’re clean enough."],answer:1,explanation:'尺寸不足够大：They aren’t big enough.'},
+        {prompt:'I can’t carry this box.',options:["It’s too heavy.","It’s light enough.","It isn’t old enough."],answer:0,explanation:'搬不动说明箱子太重：too heavy。'},
+        {prompt:'He can’t win the race.',options:["He is too fast.","He isn’t fast enough.","He is clean enough."],answer:1,explanation:'速度不够快：isn’t fast enough。'},
+        {prompt:'Look at the snow! It’s very cold outside.',options:["It’s too cold to go out.","It’s warm enough to go out.","It isn’t expensive enough."],answer:0,explanation:'冷到不能出门：too cold to go out。'}
+      ]},
+      {icon:'🎁',title:'生日礼物 Boss',sub:'选礼物，再说出问题',kind:'gift',boss:true,questions:[
+        {prompt:'The room is very small. Choose the problem gift.',gifts:[['🐴','a horse'],['🍌','a banana'],['📘','a book']],answerGift:0,reasons:['It’s too big.','It isn’t big enough.'],answerReason:0,explanation:'小房间放不下马：A horse is too big.'},
+        {prompt:'You have only £10. Choose the problem gift.',gifts:[['💻','a new laptop'],['🍎','an apple'],['🧢','a cap']],answerGift:0,reasons:["It’s too expensive.","It’s cheap enough."],answerReason:0,explanation:'电脑超出预算：A new laptop is too expensive.'},
+        {prompt:'The party needs five bananas, but there is only one.',gifts:[['🍌','a banana'],['🎈','a balloon'],['🧸','a teddy']],answerGift:0,reasons:["There aren’t enough bananas.","There are too many bananas."],answerReason:0,explanation:'数量不足：There aren’t enough bananas.'},
+        {prompt:'Sam needs size 10, but these jeans are size 8.',gifts:[['👖','these jeans'],['🧦','some socks'],['🧣','a scarf']],answerGift:0,reasons:["They aren’t big enough.","They’re too big."],answerReason:0,explanation:'牛仔裤尺寸不够大：They aren’t big enough.'},
+        {prompt:'A small garden cannot hold a very large house.',gifts:[['🏠','a house'],['🍰','a cake'],['🖊️','a pen']],answerGift:0,reasons:["It’s too big.","It’s big enough."],answerReason:0,explanation:'房子太大：A house is too big.'}
+      ]}
+    ];
+    function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+    function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+    function $(id){return document.getElementById(id)}
+    function inFrame(){return window.parent!==window}
+    function send(message){if(inFrame())window.parent.postMessage(message,'*')}
+    function beep(kind){if(!soundOn)return;try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var c=beep.ctx||(beep.ctx=new C());if(c.state==='suspended')c.resume();var o=c.createOscillator(),g=c.createGain(),n=c.currentTime;o.type='sine';o.frequency.setValueAtTime(kind===1?880:kind===2?520:kind===3?1100:660,n);o.frequency.exponentialRampToValueAtTime(kind===2?320:kind===3?1500:480,n+.18);g.gain.setValueAtTime(.0001,n);g.gain.exponentialRampToValueAtTime(.11,n+.02);g.gain.exponentialRampToValueAtTime(.0001,n+.22);o.connect(g);g.connect(c.destination);o.start(n);o.stop(n+.24)}catch(e){}}
+    function shuffle(list){var a=list.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+    function requestData(){if(inFrame())send({type:'tooenough:requestData'})}
+    function applyBridgeData(data){bridge=data||bridge;renderBridge()}
+    function fillClassSelect(sel){if(!sel)return;sel.innerHTML='';(bridge.classes||[]).forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o)});if(bridge.currentClassId)sel.value=bridge.currentClassId}
+    function fillStudentSelect(sel){if(!sel)return;sel.innerHTML='<option value="">请选择学生</option>';(bridge.students||[]).forEach(function(s){var o=document.createElement('option');o.value=s.id;o.textContent=(s.avatar?s.avatar+' ':'')+s.name;sel.appendChild(o)});sel.value=state.selectedStudentId||''}
+    function currentStudentName(){var hit=null;(bridge.students||[]).forEach(function(s){if(s.id===state.selectedStudentId)hit=s});return hit?((hit.avatar?hit.avatar+' ':'')+hit.name):''}
+    function renderBridge(){fillClassSelect($('classSelect'));if(state.selectedStudentId&&!(bridge.students||[]).some(function(s){return s.id===state.selectedStudentId})){state.selectedStudentId=null;state.awarded={}}fillStudentSelect($('studentSelect'));loadUnlock();var ready=!!state.selectedStudentId,mh=$('mapPickerHint');if(mh){mh.textContent=ready?('本轮学生：'+currentStudentName()+' · 点下面任意已解锁关卡开始'):'请先选择本轮学生，再点关卡开始';mh.className='picker-status'+(ready?' ready':'')}renderLevels()}
+    function onClassPicked(value){if(value)send({type:'tooenough:switchClass',classId:value})}
+    function onStudentPicked(value){state.selectedStudentId=value||null;state.awarded={};loadUnlock();renderBridge()}
+    function loadUnlock(){if(!state.selectedStudentId){unlocked=1;return}var raw=Number(lsGet('tooEnoughUnlocked:'+state.selectedStudentId)||1);unlocked=Math.min(levels.length,Math.max(1,raw));}
+    function saveUnlock(){if(state.selectedStudentId)lsSet('tooEnoughUnlocked:'+state.selectedStudentId,String(unlocked))}
+    function toast(message){var el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(function(){el.classList.remove('show')},2300)}
+    function renderLevels(){var host=$('levels');host.innerHTML='';levels.forEach(function(level,i){var b=document.createElement('button');b.type='button';b.className='level'+(i+1>unlocked?' locked':'')+(level.boss?' boss':'');b.disabled=i+1>unlocked;b.innerHTML='<span class="icon">'+level.icon+'</span><strong>'+ (i+1)+'. '+level.title+'</strong><small>'+level.sub+(i+1>unlocked?' · 🔒':'')+'</small>';b.onclick=function(){startLevel(i,false)};host.appendChild(b)});$('unlockText').textContent='已解锁 '+unlocked+' / '+levels.length+' 关'}
+    function showMap(){clearTimer();$('gameCard').classList.add('hidden');$('resultCard').classList.add('hidden');$('mapCard').classList.remove('hidden');renderLevels()}
+    function clearTimer(){if(timer.id){clearInterval(timer.id);timer.id=null}if(timer.advance){clearTimeout(timer.advance);timer.advance=null}timer.paused=false}
+    function paintTimer(){var chip=$('timerChip');$('timerNum').textContent=timer.left;chip.classList.toggle('urgent',timer.left<=10&&timer.left>0);chip.classList.toggle('paused',timer.paused)}
+    function scheduleNext(){if(timer.advance)clearTimeout(timer.advance);timer.advance=setTimeout(function(){timer.advance=null;state.index++;renderQuestion()},950)}
+    function startTimer(){clearTimer();timer.left=QUESTION_SECONDS;paintTimer();timer.id=setInterval(function(){if(timer.paused||state.locked)return;timer.left--;paintTimer();if(timer.left<=0){clearTimer();state.locked=true;showFeedback(false,'时间到啦！'+(state.questions[state.index].explanation||''));beep(2);scheduleNext()}},1000)}
+    function togglePause(){if($('gameCard').classList.contains('hidden')||state.locked)return;timer.paused=!timer.paused;$('pauseBtn').textContent=timer.paused?'▶':'Ⅱ';$('pauseBtn').setAttribute('aria-label',timer.paused?'继续':'暂停');paintTimer()}
+    function currentQuestion(){return state.questions[state.index]}
+    function shuffleWithAnswer(list,answerIndex){var pairs=shuffle(list.map(function(o,i){return{o:o,i:i}})),na=answerIndex;for(var k=0;k<pairs.length;k++){if(pairs[k].i===answerIndex){na=k;break}}return{list:pairs.map(function(p){return p.o}),answer:na}}
+    function randomizeOptions(q){if(Array.isArray(q.options)){var r=shuffleWithAnswer(q.options,q.answer);q.options=r.list;q.answer=r.answer}if(Array.isArray(q.gifts)){var g=shuffleWithAnswer(q.gifts,q.answerGift);q.gifts=g.list;q.answerGift=g.answer}if(Array.isArray(q.reasons)){var rs=shuffleWithAnswer(q.reasons,q.answerReason);q.reasons=rs.list;q.answerReason=rs.answer}return q}
+    function prepareQuestions(level,retry){var source=retry?state.wrong.map(function(w){return w.q}):level.questions;return shuffle(source.map(function(q){return randomizeOptions(JSON.parse(JSON.stringify(q)))}))}
+    function startLevel(index,retry){if(index+1>unlocked&&!retry)return;if(!state.selectedStudentId){toast('请先选择一名学生');return}state.level=index;state.isRetry=!!retry;state.questions=prepareQuestions(levels[index],retry);state.index=0;state.correct=0;state.score=0;state.wrong=[];state.locked=false;state.sentence=[];state.gift=null;state.reason=null;$('mapCard').classList.add('hidden');$('resultCard').classList.add('hidden');$('gameCard').classList.remove('hidden');$('levelKicker').textContent='LEVEL '+(index+1)+(retry?' · 复活赛':'');$('levelTitle').textContent=levels[index].icon+' '+levels[index].title;renderQuestion();$('gameCard').classList.add('pop');setTimeout(function(){$('gameCard').classList.remove('pop')},350)}
+    function renderQuestion(){var q=currentQuestion();if(!q){finishLevel();return}state.locked=false;state.sentence=[];state.gift=null;state.reason=null;clearTimer();$('questionStat').textContent=(state.index+1)+' / '+state.questions.length;$('scoreStat').textContent='⭐ '+state.score;$('progressBar').style.width=((state.index/state.questions.length)*100)+'%';$('questionTag').textContent=state.level===0?'选择正确的词':state.level===1?'点击词卡组成句子':state.level===2?'根据情境选择表达':'选择礼物，再说明问题';$('question').textContent=q.prompt||'';fitPrompt();$('feedback').className='feedback';$('feedback').innerHTML='';var area=$('interactiveArea');area.innerHTML='';if(levels[state.level].kind==='choice')renderChoice(q,area);else if(levels[state.level].kind==='order')renderOrder(q,area);else renderGift(q,area);startTimer()}
+    function fitPrompt(){var el=$('question');if(!el)return;el.classList.remove('wrapped');el.classList.add('one-line');var host=el.parentNode,avail=host?host.clientWidth:0;if(!el.textContent||!avail){el.style.fontSize='';return}var min=avail<560?16:20,size=avail<560?28:42,guard=0;el.style.fontSize=size+'px';while(size>min&&el.scrollWidth>avail&&guard++<60){size--;el.style.fontSize=size+'px'}if(el.scrollWidth>avail){el.classList.remove('one-line');el.classList.add('wrapped')}}
+    function refitAll(){fitPrompt();fitButtons(document.querySelectorAll('.option'));fitButtons(document.querySelectorAll('.reason'))}
+    function fitButtons(nodes){Array.prototype.forEach.call(nodes,function(b){if(getComputedStyle(b).whiteSpace!=='nowrap'){b.style.fontSize='';return}var size=18;b.style.fontSize=size+'px';var guard=0;while(size>11&&b.scrollWidth>b.clientWidth&&guard++<12){size--;b.style.fontSize=size+'px'}})}
+    function wrongLine(w){return w.text&&w.text!==w.answer?(w.text+' → '+w.answer):w.answer}
+    function showFeedback(ok,text){var f=$('feedback');f.className='feedback show '+(ok?'good':'bad');f.innerHTML='<strong>'+(ok?'✅ Great!':'💡 Try again')+'</strong> '+text}
+    function lockButtons(selector){document.querySelectorAll(selector).forEach(function(b){b.disabled=true})}
+    function joinTokens(list){return list.join(' ').replace(/\\s+([.,!?])/g,'$1')}
+    function questionText(q){return q.prompt||(Array.isArray(q.tokens)?joinTokens(q.tokens):'')}
+    function registerWrong(q,answerText){if(!state.wrong.some(function(w){return w.q===q}))state.wrong.push({q:q,text:questionText(q),answer:answerText})}
+    function answerDone(ok,q,answerText,explanation){if(state.locked)return;state.locked=true;clearTimer();if(ok){state.correct++;state.score+=10;$('scoreStat').textContent='⭐ '+state.score;showFeedback(true,explanation);beep(1)}else{registerWrong(q,answerText);showFeedback(false,explanation+' 正确答案：'+answerText);beep(2)}scheduleNext()}
+    function renderChoice(q,area){var grid=document.createElement('div');grid.className='options';grid.style.setProperty('--option-count',String((q.options||[]).length));(q.options||[]).forEach(function(opt,i){var b=document.createElement('button');b.type='button';b.className='option';b.textContent=opt;b.onclick=function(){document.querySelectorAll('.option').forEach(function(x){x.classList.remove('correct','wrong')});b.classList.add(i===q.answer?'correct':'wrong');lockButtons('.option');answerDone(i===q.answer,q,q.options[q.answer],q.explanation)};grid.appendChild(b)});area.appendChild(grid);fitButtons(grid.querySelectorAll('.option'))}
+    function renderOrder(q,area){var wrap=document.createElement('div');wrap.className='sentence-builder';var slots=document.createElement('div');slots.className='sentence-slots empty';var bank=document.createElement('div');bank.className='token-bank';var tokens=shuffle(q.tokens.map(function(t,i){return{t:t,i:i}}));function redraw(){slots.innerHTML='';slots.classList.toggle('empty',state.sentence.length===0);state.sentence.forEach(function(item,pos){var b=document.createElement('button');b.type='button';b.className='selected-token';b.textContent=item.t;b.onclick=function(){if(state.locked)return;state.sentence.splice(pos,1);redraw()};slots.appendChild(b)});bank.innerHTML='';tokens.forEach(function(item){var used=state.sentence.some(function(x){return x.i===item.i});var b=document.createElement('button');b.type='button';b.className='token'+(used?' used':'');b.textContent=item.t;b.disabled=used;b.onclick=function(){if(!used&&!state.locked){state.sentence.push(item);redraw()}};bank.appendChild(b)})}redraw();var check=document.createElement('button');check.type='button';check.className='check-btn';check.textContent='检查句子 ✓';check.onclick=function(){if(state.locked)return;var actual=joinTokens(state.sentence.map(function(x){return x.t}));var expected=joinTokens(q.tokens);var ok=actual===expected;check.disabled=true;answerDone(ok,q,expected,q.explanation);};wrap.append(slots,bank,check);area.appendChild(wrap)}
+    function renderGift(q,area){var wrap=document.createElement('div');wrap.className='gift-stage';var giftGrid=document.createElement('div');giftGrid.className='gift-grid';q.gifts.forEach(function(item,i){var b=document.createElement('button');b.type='button';b.className='gift';b.innerHTML=item[0]+'<span>'+item[1]+'</span>';b.onclick=function(){if(state.locked)return;state.gift=i;document.querySelectorAll('.gift').forEach(function(x){x.classList.remove('correct','wrong')});b.classList.add(i===q.answerGift?'correct':'wrong');if(i!==q.answerGift){lockButtons('.gift');answerDone(false,q,q.gifts[q.answerGift][1]+' → '+q.reasons[q.answerReason],q.explanation);return}beep(1);renderReasons(q,wrap);document.querySelectorAll('.gift').forEach(function(x){x.disabled=true})};giftGrid.appendChild(b)});wrap.appendChild(giftGrid);area.appendChild(wrap)}
+    function renderReasons(q,wrap){var old=wrap.querySelector('.reason-grid');if(old)old.remove();var prompt=document.createElement('div');prompt.className='sub-prompt';prompt.textContent='很好！现在说出问题：';var grid=document.createElement('div');grid.className='reason-grid';q.reasons.forEach(function(reason,i){var b=document.createElement('button');b.type='button';b.className='reason';b.textContent=reason;b.onclick=function(){if(state.locked)return;document.querySelectorAll('.reason').forEach(function(x){x.classList.remove('correct','wrong')});b.classList.add(i===q.answerReason?'correct':'wrong');lockButtons('.reason');answerDone(i===q.answerReason,q,q.gifts[q.answerGift][1]+' → '+q.reasons[q.answerReason],q.explanation)};grid.appendChild(b)});wrap.append(prompt,grid);fitButtons(grid.querySelectorAll('.reason'))}
+    function finishLevel(){clearTimer();state.locked=true;var level=levels[state.level],rate=state.questions.length?state.correct/state.questions.length:0,passed=rate>=.8;var firstAttempt=!state.isRetry;if(firstAttempt&&!state.awarded[state.level]){state.awarded[state.level]=true;if(state.score>0)send({type:'tooenough:addScore',studentId:state.selectedStudentId,score:state.score,level:'Level '+(state.level+1)});if(state.wrong.length)send({type:'tooenough:addWrongItems',studentId:state.selectedStudentId,level:'Level '+(state.level+1),items:state.wrong.map(wrongLine)})}if(passed&&state.level+1<levels.length&&unlocked<state.level+2){unlocked=state.level+2;saveUnlock()}$('gameCard').classList.add('hidden');$('resultCard').classList.remove('hidden');$('resultIcon').textContent=passed?(level.boss?'🏆':'🎉'):'💪';$('resultTitle').textContent=passed?(level.boss?'生日礼物挑战完成！':'关卡完成！'):'再试一次，你可以的！';$('resultText').textContent='答对 '+state.correct+' / '+state.questions.length+' 题 · '+(passed?'达到 80%，已解锁下一关！':'需要答对 80% 才能解锁下一关。')+(state.isRetry?' · 复活赛不重复计分':'');$('resultScore').textContent='⭐ '+state.score;var box=$('wrongBox'),list=$('wrongList');list.innerHTML='';if(state.wrong.length){box.classList.remove('hidden');state.wrong.forEach(function(w){var li=document.createElement('li');li.textContent=wrongLine(w);list.appendChild(li)})}else box.classList.add('hidden');$('retryBtn').classList.toggle('hidden',!state.wrong.length||state.isRetry);$('mapCard').classList.add('hidden');beep(passed?3:2)}
+    $('classSelect').addEventListener('change',function(){onClassPicked(this.value)});$('studentSelect').addEventListener('change',function(){onStudentPicked(this.value)});$('homeBtn').addEventListener('click',showMap);$('mapBtn').addEventListener('click',showMap);$('retryBtn').addEventListener('click',function(){startLevel(state.level,true)});$('pauseBtn').addEventListener('click',togglePause);$('soundBtn').addEventListener('click',function(){soundOn=!soundOn;lsSet('tooEnoughSound',soundOn?'on':'off');this.textContent=soundOn?'🔊':'🔇';if(soundOn)beep(1)});window.addEventListener('resize',function(){clearTimeout(window.__teFit);window.__teFit=setTimeout(refitAll,140)});
+    window.addEventListener('message',function(ev){var msg=ev&&ev.data;if(!msg||typeof msg!=='object')return;if(msg.type==='tooenough:data')applyBridgeData(msg.payload)});requestData();setTimeout(requestData,500);setTimeout(requestData,1600);renderLevels();
+  <\/script>
+</body>
+</html>
+`;
+
+        function openTooEnoughModal() {
+            const modal = document.getElementById('too-enough-modal');
+            const iframe = document.getElementById('too-enough-iframe');
+            if (!modal || !iframe) return;
+            iframe.onload = function() {
+                try {
+                    iframe.contentWindow.postMessage({ type: 'tooenough:data', payload: getTooEnoughBridgeData() }, '*');
+                } catch (e) {}
+            };
+            iframe.removeAttribute('src');
+            iframe.srcdoc = '';
+            iframe.srcdoc = window._tooEnoughHtml || '';
+            modal.classList.add('show');
+        }
+
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('show');
@@ -5142,6 +5374,10 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
             if(id === 'quantity-modal') {
                 const f = document.getElementById('quantity-iframe');
                 if(f) f.srcdoc = '';
+            }
+            if(id === 'too-enough-modal') {
+                const f = document.getElementById('too-enough-iframe');
+                if(f) { f.onload = null; f.srcdoc = ''; }
             }
         }
 
@@ -5246,7 +5482,7 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
                 id,
                 name: cls.name || '未命名班级',
                 color: colorMap[id],
-                students: (cls.students || []).map(s => ({
+                students: (cls.students || []).filter(s => s && s.archived !== true).map(s => ({
                     id: s.id,
                     name: s.name || '未命名',
                     avatar: s.avatar || '',
@@ -6519,7 +6755,9 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
                     ['ket-verb-iframe', {type:'ketverb:data', payload:getKetVerbBridgeData()}],
                     ['tense-iframe', {type:'tense:data', payload:getTenseBridgeData()}],
                     ['pc-iframe', {type:'pctense:data', payload:getPcTenseBridgeData()}],
-                    ['quantity-iframe', {type:'quantity:data', payload:getQuantityBridgeData()}]
+                    ['quantity-iframe', {type:'quantity:data', payload:getQuantityBridgeData()}],
+                    ['tense-mix-iframe', {type:'tensemix:data', payload:getTenseMixBridgeData()}],
+                    ['too-enough-iframe', {type:'tooenough:data', payload:getTooEnoughBridgeData()}]
                 ];
                 messages.forEach(([frameId, message]) => { const frame = document.getElementById(frameId); if (frame && frame.contentWindow) frame.contentWindow.postMessage(message, '*'); });
             } catch (e) {}
@@ -7425,6 +7663,7 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
     <div class="modal-overlay tool-modal" id="pc-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('pc-modal')">✕</button> <iframe id="pc-iframe" class="tool-iframe" title="现在进行时闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="tense-mix-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-mix-modal')">✕</button> <iframe id="tense-mix-iframe" class="tool-iframe" title="时态小侦探：一般现在时与现在进行时综合挑战" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="quantity-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('quantity-modal')">✕</button> <iframe id="quantity-iframe" class="tool-iframe" title="数量与名词闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="too-enough-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('too-enough-modal')">✕</button> <iframe id="too-enough-iframe" class="tool-iframe" title="too / enough 帽子店挑战" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     
     <div class="modal-overlay attendance-fullscreen-modal" id="attendance-modal-container" data-attendance-theme="peach">
         <div class="attendance-shell" role="dialog" aria-modal="true" aria-label="排课与签到">
