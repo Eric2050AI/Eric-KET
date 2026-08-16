@@ -41,7 +41,8 @@
             { id:'pc-rescue', group:'英语练习', name:'现在进行时闯关', icon:'🚀', color:'var(--btn-green)', action:'openPcModal' },
             { id:'tense-mix', group:'英语练习', name:'时态小侦探', icon:'🕵️', color:'var(--btn-blue)', action:'openTenseMixModal' },
             { id:'quantity-rescue', group:'英语练习', name:'数量与名词闯关', icon:'🛒', color:'var(--btn-gold)', action:'openQuantityModal' },
-            { id:'too-enough', group:'英语练习', name:'too / enough 帽子店挑战', icon:'🎩', color:'var(--btn-cyan)', action:'openTooEnoughModal' }
+            { id:'too-enough', group:'英语练习', name:'too / enough 帽子店挑战', icon:'🎩', color:'var(--btn-cyan)', action:'openTooEnoughModal' },
+            { id:'comparatives', group:'英语练习', name:'形容词比较级最高级', icon:'⚖️', color:'var(--btn-pink)', action:'openComparativesModal' }
         ];
 
         function getPinnedGameIds(){
@@ -463,7 +464,18 @@
         function toggleTop5(){ showTop5Only=!showTop5Only; document.getElementById('toggle-rank-btn').innerText=showTop5Only?"显示全部学生":"隐藏低分学生"; renderRanking(); }
         function openAddStudentModal(){ document.getElementById('new-student-name').value=''; document.getElementById('add-student-modal').classList.add('show'); }
         function confirmAddStudent(){ let name=document.getElementById('new-student-name').value.trim(); if(!name){alert('请输入姓名');return;} saveStateToHistory(); getStudents().push({id:'stu_'+Date.now(),name,avatar:selectedEmoji,score:0}); playSound('new'); saveData(); closeModal('add-student-modal'); }
-        function deleteStudent(id,ev){ ev.stopPropagation(); if(confirm('确定删除？')){ saveStateToHistory(); getCurrentClass().students=getStudents().filter(s=>s.id!==id); saveData(); } }
+        function deleteStudent(id,ev){
+            if (ev && ev.stopPropagation) ev.stopPropagation();
+            const cls = getCurrentClass();
+            const students = Array.isArray(cls.students) ? cls.students : [];
+            if (!students.some(s => s && s.id === id)) return;
+            if(confirm('确定删除？')){
+                saveStateToHistory();
+                // 只删除指定学生，不能用 getStudents() 过滤，否则会把已隐藏学生一起丢掉。
+                cls.students = students.filter(s => !s || s.id !== id);
+                saveData();
+            }
+        }
         function resetPoints(){ if(confirm('积分清零？')){ saveStateToHistory(); getActiveStudents().forEach(s=>s.score=0); let t=new Date(); let dateStr=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; let timeStr=t.toLocaleTimeString(); getLogs().unshift({date:dateStr,time:timeStr,name:'全体',category:'系统',delta:'清零'}); saveData(); } }
         function deleteAllStudents(){ if(confirm('⚠️ 删除所有学生？')){ saveStateToHistory(); getCurrentClass().students=[]; getCurrentClass().logs=[]; saveData(); } }
         function updateNumpadDisplay(){ document.getElementById('numpad-display').innerText=numpadValue; }
@@ -499,7 +511,7 @@
         function openClassModal(){ renderClassList(); renderArchivedList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
-        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); const teif=document.getElementById('too-enough-iframe'); if(teif&&teif.contentWindow) teif.contentWindow.postMessage({type:'tooenough:data',payload:getTooEnoughBridgeData()},'*'); }catch(e){} }
+        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); const teif=document.getElementById('too-enough-iframe'); if(teif&&teif.contentWindow) teif.contentWindow.postMessage({type:'tooenough:data',payload:getTooEnoughBridgeData()},'*'); const cif=document.getElementById('comparatives-iframe'); if(cif&&cif.contentWindow) cif.contentWindow.postMessage({type:'comparatives:data',payload:getComparativesBridgeData()},'*'); }catch(e){} }
         function renameClass(id){ let cls=allClasses[id]; let name=prompt('新名称',cls.name); if(name&&name.trim()){ cls.name=name.trim(); saveAllClasses(); updateClassTitle(); renderClassList(); } }
         async function deleteClass(id){ const cls = allClasses[id]; if(!cls) return; if(!confirm(`⚠ 确定要删除班级「${cls.name}」吗？\n班级内 ${cls.students.length} 名学生数据将全部删除，不可恢复！`)) return; if (currentClassId === id) { const otherIds = Object.keys(allClasses).filter(k => k !== id); if (otherIds.length > 0) { currentClassId = otherIds[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } } delete allClasses[id]; historyStack = []; saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); if (isCloudMode) { markClassAsDeleted(id); try { await deleteClassFromCloud(id); clearDeleteMark(id); updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); } } }
         
@@ -740,6 +752,27 @@
                 window.tooEnoughAPI.addTooEnoughWrongItems(msg.studentId, msg.level, msg.items);
                 return;
             }
+            if (msg.type === 'comparatives:requestData') {
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'comparatives:data', payload: getComparativesBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'comparatives:switchClass') {
+                switchClass(msg.classId);
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'comparatives:data', payload: getComparativesBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'comparatives:addScore') {
+                window.comparativesAPI.addComparativesScore(msg.studentId, msg.score);
+                return;
+            }
+            if (msg.type === 'comparatives:addWrongItems') {
+                window.comparativesAPI.addComparativesWrongItems(msg.studentId, msg.level, msg.items);
+                return;
+            }
         });
 
         window.matchGameAPI = {
@@ -971,6 +1004,44 @@
                 classes: window.tooEnoughAPI.getClasses(),
                 currentClassId: window.tooEnoughAPI.getCurrentClassId(),
                 students: window.tooEnoughAPI.getStudents()
+            };
+        }
+
+        window.comparativesAPI = {
+            getClasses: () => Object.keys(allClasses).map(id => ({ id, name: allClasses[id]?.name || '未命名' })),
+            getCurrentClassId: () => currentClassId,
+            getStudents: () => getActiveStudents().map(s => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score })),
+            switchClass: (id) => switchClass(id),
+            addComparativesScore: (studentId, score) => {
+                const val = parseInt(score, 10);
+                if (!studentId || !Number.isFinite(val) || val === 0) return false;
+                selectCategoryButton('互动');
+                updateScore(studentId, val);
+                return true;
+            },
+            addComparativesWrongItems: (studentId, level, items) => {
+                const list = Array.isArray(items) ? items.map(w => String(w || '').trim()).filter(Boolean) : [];
+                if (!studentId || list.length === 0) return false;
+                const s = getStudents().find(st => st.id === studentId);
+                if (!s) return false;
+                saveStateToHistory();
+                const t = new Date();
+                const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+                const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+                const cat = '形容词比较级最高级错题' + (level ? ('·' + level) : '');
+                getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
+                while (getLogs().length > 200) getLogs().pop();
+                saveAllClasses();
+                saveData();
+                return true;
+            }
+        };
+
+        function getComparativesBridgeData() {
+            return {
+                classes: window.comparativesAPI.getClasses(),
+                currentClassId: window.comparativesAPI.getCurrentClassId(),
+                students: window.comparativesAPI.getStudents()
             };
         }
 
@@ -5329,6 +5400,19 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
             modal.classList.add('show');
         }
 
+        function openComparativesModal() {
+            const modal = document.getElementById('comparatives-modal');
+            const iframe = document.getElementById('comparatives-iframe');
+            if (!modal || !iframe) return;
+            iframe.onload = function() {
+                try {
+                    iframe.contentWindow.postMessage({ type: 'comparatives:data', payload: getComparativesBridgeData() }, '*');
+                } catch (e) {}
+            };
+            iframe.src = 'KET-Comparatives-Superlatives-Trainer_3.html?embedded=1';
+            modal.classList.add('show');
+        }
+
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('show');
@@ -5378,6 +5462,10 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
             if(id === 'too-enough-modal') {
                 const f = document.getElementById('too-enough-iframe');
                 if(f) { f.onload = null; f.srcdoc = ''; }
+            }
+            if(id === 'comparatives-modal') {
+                const f = document.getElementById('comparatives-iframe');
+                if(f) { f.onload = null; f.src = ''; }
             }
         }
 
@@ -6578,7 +6666,15 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
                 });
                 Object.keys(localClasses).forEach(id => {
                     const meta = reviewSyncMeta[id];
-                    if (!merged[id] && meta && meta.dirty) merged[id] = reviewNormalizeClass(localClasses[id]);
+                    if (!merged[id] && !deletedClassIds.includes(id)) {
+                        // 云端暂无该班级时保留本地数据，并标记为待同步，避免首次登录/换设备时丢班级。
+                        merged[id] = reviewNormalizeClass(localClasses[id]);
+                        reviewSyncMeta[id] = Object.assign({}, meta, {
+                            dirty: true,
+                            localRevision: reviewLocalRevision,
+                            localUpdatedAt: (meta && meta.localUpdatedAt) || Date.now()
+                        });
+                    }
                     if (meta && meta.dirty && merged[id]) {
                         reviewSyncMeta[id] = Object.assign({}, meta, { localRevision: reviewLocalRevision });
                     }
@@ -6757,7 +6853,8 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
                     ['pc-iframe', {type:'pctense:data', payload:getPcTenseBridgeData()}],
                     ['quantity-iframe', {type:'quantity:data', payload:getQuantityBridgeData()}],
                     ['tense-mix-iframe', {type:'tensemix:data', payload:getTenseMixBridgeData()}],
-                    ['too-enough-iframe', {type:'tooenough:data', payload:getTooEnoughBridgeData()}]
+                    ['too-enough-iframe', {type:'tooenough:data', payload:getTooEnoughBridgeData()}],
+                    ['comparatives-iframe', {type:'comparatives:data', payload:getComparativesBridgeData()}]
                 ];
                 messages.forEach(([frameId, message]) => { const frame = document.getElementById(frameId); if (frame && frame.contentWindow) frame.contentWindow.postMessage(message, '*'); });
             } catch (e) {}
@@ -7664,6 +7761,7 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
     <div class="modal-overlay tool-modal" id="tense-mix-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('tense-mix-modal')">✕</button> <iframe id="tense-mix-iframe" class="tool-iframe" title="时态小侦探：一般现在时与现在进行时综合挑战" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="quantity-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('quantity-modal')">✕</button> <iframe id="quantity-iframe" class="tool-iframe" title="数量与名词闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="too-enough-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('too-enough-modal')">✕</button> <iframe id="too-enough-iframe" class="tool-iframe" title="too / enough 帽子店挑战" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="comparatives-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('comparatives-modal')">✕</button> <iframe id="comparatives-iframe" class="tool-iframe" title="形容词比较级最高级" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     
     <div class="modal-overlay attendance-fullscreen-modal" id="attendance-modal-container" data-attendance-theme="peach">
         <div class="attendance-shell" role="dialog" aria-modal="true" aria-label="排课与签到">
