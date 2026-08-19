@@ -5400,6 +5400,1712 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
             modal.classList.add('show');
         }
 
+        window._comparativesHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparatives &amp; Superlatives Trainer · KET Grammar Engine</title>
+<style>
+/* ==========================================================
+   设计令牌（Design Tokens）
+   风格：Apple Education 留白 + Duolingo 圆角活力 + Cambridge 稳重
+   主色系：高级蓝绿 teal / 天空蓝 sky / 奶白背景 cream
+   ========================================================== */
+:root{
+  --cream:#FFFDF7;          /* 奶白主背景 */
+  --paper:#FFFFFF;          /* 卡片纸白 */
+  --mint:#E7F5F2;           /* 浅蓝绿底 */
+  --mint-2:#D3ECE7;
+  --teal:#0E9C93;           /* 主色：高级蓝绿 */
+  --teal-deep:#07736D;
+  --teal-soft:#5CC8BF;
+  --sky:#4DA3FF;            /* 辅色：天空蓝 */
+  --sky-deep:#2A7FD6;
+  --gold:#FFB524;           /* 金币/星星 */
+  --gold-deep:#E08E00;
+  --coral:#FF7D6B;          /* 柔和错误色（不刺眼） */
+  --coral-deep:#E05A46;
+  --ink:#12333B;            /* 主文字 */
+  --ink-soft:#5E838C;       /* 次级文字 */
+  --line:#E3EDEB;
+  --shadow-s:0 2px 6px rgba(18,51,59,.06);
+  --shadow-m:0 8px 22px rgba(18,51,59,.10);
+  --shadow-l:0 18px 46px rgba(18,51,59,.16);
+  --r-s:12px; --r-m:20px; --r-l:30px; --r-xl:42px;
+  --ease:cubic-bezier(.22,.9,.28,1);
+  --font-display:"Avenir Next","Segoe UI Variable Display","Nunito","PingFang SC","HarmonyOS Sans","Microsoft YaHei",system-ui,sans-serif;
+  --font-body:"Segoe UI","PingFang SC","HarmonyOS Sans","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0;font-family:var(--font-body);color:var(--ink);
+  background:
+    radial-gradient(1100px 620px at 12% -10%, #E9F7F4 0%, rgba(233,247,244,0) 60%),
+    radial-gradient(900px 520px at 100% 0%, #EAF3FF 0%, rgba(234,243,255,0) 55%),
+    var(--cream);
+  overflow-x:hidden;
+}
+button{font-family:inherit;}
+:focus-visible{outline:3px solid var(--sky);outline-offset:3px;border-radius:8px;}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+}
+
+/* ============ 通用按钮：全部带 Hover 动画，无传统方按钮 ============ */
+.btn{
+  border:none;cursor:pointer;font-weight:800;letter-spacing:.2px;
+  border-radius:999px;padding:14px 30px;font-size:17px;color:#fff;
+  background:linear-gradient(180deg,var(--teal-soft),var(--teal));
+  box-shadow:0 6px 0 var(--teal-deep),var(--shadow-m);
+  transition:transform .16s var(--ease),box-shadow .16s var(--ease),filter .16s;
+}
+.btn:hover{transform:translateY(-3px);box-shadow:0 9px 0 var(--teal-deep),var(--shadow-l);filter:saturate(1.1);}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--teal-deep);}
+.btn.sky{background:linear-gradient(180deg,#8AC3FF,var(--sky));box-shadow:0 6px 0 var(--sky-deep),var(--shadow-m);}
+.btn.sky:hover{box-shadow:0 9px 0 var(--sky-deep),var(--shadow-l);}
+.btn.sky:active{box-shadow:0 2px 0 var(--sky-deep);}
+.btn.gold{background:linear-gradient(180deg,#FFD173,var(--gold));box-shadow:0 6px 0 var(--gold-deep),var(--shadow-m);color:#4A3200;}
+.btn.gold:hover{box-shadow:0 9px 0 var(--gold-deep),var(--shadow-l);}
+.btn.ghost{background:var(--paper);color:var(--teal-deep);box-shadow:inset 0 0 0 2px var(--mint-2),var(--shadow-s);}
+.btn.ghost:hover{background:var(--mint);box-shadow:inset 0 0 0 2px var(--teal-soft),var(--shadow-m);transform:translateY(-2px);}
+.btn.ghost:active{transform:translateY(1px);}
+.btn.sm{padding:10px 20px;font-size:15px;}
+.btn[disabled]{opacity:.45;pointer-events:none;filter:grayscale(.4);}
+
+/* ============ 顶部 HUD ============ */
+.hud{
+  position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;
+  padding:14px 26px;backdrop-filter:blur(14px);
+  background:rgba(255,253,247,.82);border-bottom:1px solid var(--line);
+}
+.hud .brand{display:flex;align-items:center;gap:12px;margin-right:auto;cursor:pointer;}
+.hud .brand h1{font-family:var(--font-display);font-size:19px;margin:0;letter-spacing:-.2px;}
+.hud .brand p{margin:2px 0 0;font-size:12px;color:var(--ink-soft);letter-spacing:.4px;}
+.chip{
+  display:flex;align-items:center;gap:8px;background:var(--paper);
+  border-radius:999px;padding:9px 16px;font-weight:800;font-size:15px;
+  box-shadow:var(--shadow-s);border:1px solid var(--line);transition:transform .2s var(--ease);
+}
+.chip.pop{animation:pop .45s var(--ease);}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.22)}100%{transform:scale(1)}}
+.xpbar{width:120px;height:9px;border-radius:99px;background:var(--mint-2);overflow:hidden;}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal-soft),var(--teal));transition:width .6s var(--ease);}
+
+/* ============ 积分系统桥接选择栏 ============ */
+.bridge-setup{max-width:1380px;margin:18px auto 0;padding:0 26px;}
+.bridge-setup-card{display:flex;align-items:end;gap:14px;flex-wrap:wrap;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-l);padding:16px 18px;box-shadow:var(--shadow-m);}
+.bridge-field{display:flex;flex-direction:column;gap:6px;min-width:190px;}
+.bridge-field label{font-size:13px;color:var(--ink-soft);font-weight:800;}
+.bridge-field select{min-height:42px;border:2px solid var(--mint-2);border-radius:13px;background:#fff;color:var(--ink);font:inherit;font-weight:800;padding:0 12px;}
+.bridge-status{margin:0 0 8px;color:var(--ink-soft);font-size:14px;font-weight:800;}
+.bridge-status.ready{color:var(--teal-deep);}
+
+/* ============ 页面容器 ============ */
+.wrap{max-width:1380px;margin:0 auto;padding:26px 26px 60px;}
+.screen{animation:fadeUp .5s var(--ease);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* ============ 首页 Hero + 关卡地图（签名元素） ============ */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:34px;align-items:center;margin:10px 0 26px;}
+.hero h2{font-family:var(--font-display);font-size:clamp(34px,3.6vw,54px);line-height:1.05;margin:0 0 14px;letter-spacing:-1px;}
+.hero h2 em{font-style:normal;color:var(--teal);position:relative;}
+.hero h2 em::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:12px;background:var(--gold);opacity:.28;border-radius:99px;z-index:-1;}
+.hero p{font-size:17px;color:var(--ink-soft);line-height:1.75;margin:0 0 22px;max-width:520px;}
+.hero .cta{display:flex;gap:12px;flex-wrap:wrap;}
+
+/* 变形演示台：small → smaller → smallest 循环动画 */
+.morph-stage{
+  background:var(--paper);border-radius:var(--r-xl);padding:30px;box-shadow:var(--shadow-l);
+  border:1px solid var(--line);position:relative;overflow:hidden;
+}
+.morph-stage::before{content:"";position:absolute;inset:-40% -10% auto;height:220px;background:radial-gradient(circle at 50% 0,#DFF3FF,transparent 70%);}
+.morph-row{position:relative;display:flex;flex-direction:column;gap:12px;}
+.morph-word{
+  font-family:var(--font-display);font-size:clamp(30px,3vw,44px);font-weight:800;letter-spacing:-.5px;
+  display:flex;align-items:center;gap:14px;
+}
+.morph-word .tag{font-size:12px;font-weight:800;color:var(--teal-deep);background:var(--mint);padding:5px 12px;border-radius:99px;letter-spacing:.6px;}
+.morph-word .suf{color:var(--teal);display:inline-block;animation:dropIn .6s var(--ease);}
+@keyframes dropIn{from{opacity:0;transform:translateY(-14px) scale(.6)}to{opacity:1;transform:none}}
+.morph-word.dim{opacity:.35;font-size:26px;}
+
+/* 关卡地图 */
+.map{position:relative;margin-top:14px;}
+.map-title{display:flex;align-items:baseline;gap:14px;margin:0 0 18px;}
+.map-title h3{font-family:var(--font-display);font-size:26px;margin:0;}
+.map-title span{font-size:14px;color:var(--ink-soft);}
+.stations{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;position:relative;}
+.stations::before{
+  content:"";position:absolute;left:15%;right:15%;top:96px;height:6px;border-radius:99px;
+  background:repeating-linear-gradient(90deg,var(--mint-2) 0 16px,transparent 16px 30px);z-index:0;
+}
+.station{
+  position:relative;z-index:1;background:var(--paper);border-radius:var(--r-l);padding:22px 18px 20px;
+  border:1px solid var(--line);box-shadow:var(--shadow-m);text-align:center;cursor:pointer;
+  transition:transform .22s var(--ease),box-shadow .22s var(--ease);
+}
+.station:hover{transform:translateY(-8px) rotate(-.6deg);box-shadow:var(--shadow-l);}
+.station.locked{filter:grayscale(.75);opacity:.62;cursor:not-allowed;}
+.station.locked:hover{transform:none;box-shadow:var(--shadow-m);}
+.station .no{
+  width:52px;height:52px;border-radius:18px;margin:0 auto 12px;display:grid;place-items:center;
+  font-family:var(--font-display);font-size:22px;font-weight:800;color:#fff;
+  background:linear-gradient(160deg,var(--teal-soft),var(--teal));box-shadow:0 8px 16px rgba(14,156,147,.32);
+}
+.station h4{font-family:var(--font-display);font-size:18px;margin:0 0 6px;}
+.station p{font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.6;min-height:42px;}
+.stars{display:flex;justify-content:center;gap:5px;font-size:19px;}
+.stars i{font-style:normal;filter:grayscale(1);opacity:.32;transition:.3s;}
+.stars i.on{filter:none;opacity:1;transform:scale(1.08);}
+.lockbadge{position:absolute;top:14px;right:14px;font-size:18px;}
+
+/* ============ 关卡内通用布局 ============ */
+.play{display:grid;grid-template-rows:auto 1fr auto;gap:18px;min-height:calc(100vh - 150px);}
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.topbar .title{font-family:var(--font-display);font-size:22px;margin:0;}
+.topbar .sub{font-size:13px;color:var(--ink-soft);}
+.progress{flex:1;min-width:160px;height:12px;border-radius:99px;background:var(--mint-2);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.06);}
+.progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--teal-soft),var(--teal));transition:width .5s var(--ease);}
+.stage{
+  background:var(--paper);border-radius:var(--r-xl);padding:34px;border:1px solid var(--line);
+  box-shadow:var(--shadow-m);position:relative;overflow:hidden;
+}
+.stage::after{content:"";position:absolute;right:-60px;bottom:-70px;width:230px;height:230px;border-radius:50%;background:var(--mint);opacity:.5;}
+.stage > *{position:relative;z-index:1;}
+.q-label{font-size:13px;font-weight:800;letter-spacing:1.4px;color:var(--teal-deep);text-transform:uppercase;margin-bottom:10px;}
+
+/* 词块 chip（拖动 / 点选 两用） */
+.tray{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:26px;}
+.word{
+  font-family:var(--font-display);font-size:22px;font-weight:800;padding:14px 24px;border-radius:18px;
+  background:var(--paper);border:2px solid var(--mint-2);color:var(--ink);cursor:grab;user-select:none;
+  box-shadow:0 4px 0 var(--mint-2),var(--shadow-s);transition:transform .16s var(--ease),box-shadow .16s var(--ease),background .2s;
+}
+.word:hover{transform:translateY(-4px) scale(1.03);box-shadow:0 8px 0 var(--mint-2),var(--shadow-m);background:#FBFFFE;}
+.word:active{cursor:grabbing;transform:translateY(2px);}
+.word.picked{background:var(--mint);border-color:var(--teal-soft);box-shadow:0 4px 0 var(--teal-soft),var(--shadow-m);transform:translateY(-4px) scale(1.05);}
+.word.used{opacity:.25;pointer-events:none;transform:scale(.92);}
+.word.right{background:#E4F8F0;border-color:#57C79A;box-shadow:0 4px 0 #57C79A;}
+.word.wrong{background:#FFEFEC;border-color:var(--coral);box-shadow:0 4px 0 var(--coral);animation:shake .42s;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+
+/* 空槽 slot */
+.slot{
+  display:inline-flex;align-items:center;justify-content:center;min-width:130px;min-height:56px;padding:6px 16px;
+  border-radius:16px;border:3px dashed var(--teal-soft);background:var(--mint);color:var(--teal-deep);
+  font-family:var(--font-display);font-size:22px;font-weight:800;vertical-align:middle;cursor:pointer;
+  transition:transform .18s var(--ease),background .2s,border-color .2s;
+}
+.slot:hover,.slot.over{transform:scale(1.05);background:var(--mint-2);border-color:var(--teal);}
+.slot.filled{border-style:solid;background:var(--paper);border-color:var(--teal);color:var(--ink);box-shadow:0 4px 0 var(--mint-2);}
+.slot.ok{border-color:#57C79A;background:#E4F8F0;color:#12654A;}
+.slot.no{border-color:var(--coral);background:#FFEFEC;color:var(--coral-deep);animation:shake .42s;}
+.sentence{
+  font-family:var(--font-display);font-size:clamp(24px,2.4vw,34px);font-weight:700;line-height:1.9;
+  text-align:center;letter-spacing:-.2px;
+}
+
+/* ============ 图片贴纸（SVG 圆润画框 + 大字形插画） ============ */
+.sticker{
+  background:var(--paper);border-radius:var(--r-l);padding:18px 14px 16px;border:1px solid var(--line);
+  box-shadow:var(--shadow-m);text-align:center;cursor:pointer;position:relative;overflow:hidden;
+  transition:transform .24s var(--ease),box-shadow .24s var(--ease);
+}
+.sticker:hover{transform:translateY(-8px) scale(1.02);box-shadow:var(--shadow-l);}
+.sticker svg{display:block;margin:0 auto;width:100%;height:auto;max-height:200px;}
+.sticker .name{font-family:var(--font-display);font-size:20px;font-weight:800;margin-top:8px;letter-spacing:-.2px;}
+.sticker.win{box-shadow:0 0 0 4px var(--gold),var(--shadow-l);animation:champ .8s var(--ease);}
+.sticker.lose{opacity:.42;filter:grayscale(.7);}
+.sticker.miss{animation:shake .42s;box-shadow:0 0 0 4px var(--coral),var(--shadow-m);}
+@keyframes champ{0%{transform:scale(1)}35%{transform:scale(1.14) rotate(-2deg)}70%{transform:scale(.98)}100%{transform:scale(1.04)}}
+.crown{position:absolute;top:-46px;left:50%;transform:translateX(-50%);font-size:40px;transition:top .5s var(--ease);}
+.sticker.win .crown{top:8px;animation:floaty 2s ease-in-out infinite .5s;}
+@keyframes floaty{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+
+/* 互动动画：更大 / 更快 / 更高 */
+@keyframes grow{0%{transform:scale(1)}100%{transform:scale(1.3)}}
+@keyframes zoomrun{0%{transform:translateX(0)}55%{transform:translateX(46px) scaleX(1.06)}100%{transform:translateX(0)}}
+@keyframes rise{0%{transform:translateY(0)}100%{transform:translateY(-26px)}}
+@keyframes spinjoy{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+.anim-grow svg{animation:grow .7s var(--ease) forwards;}
+.anim-run svg{animation:zoomrun 1s var(--ease) 2;}
+.anim-rise svg{animation:rise .7s var(--ease) forwards;}
+.anim-spin svg{animation:spinjoy .9s var(--ease);}
+
+/* ============ 反馈条 ============ */
+.feedback{
+  margin-top:22px;border-radius:var(--r-m);padding:18px 22px;font-size:16px;line-height:1.75;
+  display:none;animation:fadeUp .35s var(--ease);
+}
+.feedback.show{display:block;}
+.feedback.good{background:#E7F8F1;border:1px solid #A9E3C9;color:#0E5B41;}
+.feedback.bad{background:#FFF3F0;border:1px solid #FFC8BD;color:#8A3324;}
+.feedback b{font-family:var(--font-display);}
+.steps{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 6px;font-family:var(--font-display);font-size:26px;font-weight:800;}
+.steps span{background:var(--paper);padding:8px 16px;border-radius:14px;box-shadow:var(--shadow-s);animation:dropIn .45s var(--ease) backwards;}
+.steps span:nth-child(2){animation-delay:.18s}.steps span:nth-child(3){animation-delay:.36s}
+.steps span:nth-child(4){animation-delay:.54s}.steps span:nth-child(5){animation-delay:.72s}
+.steps u{text-decoration:none;color:var(--teal);}
+.arrow{color:var(--ink-soft);font-size:20px;}
+
+/* ============ Combo 飘字 & 金币 ============ */
+.toast-layer{position:fixed;inset:0;pointer-events:none;z-index:200;}
+.combo{
+  position:absolute;left:50%;top:26%;transform:translateX(-50%);
+  font-family:var(--font-display);font-size:56px;font-weight:800;letter-spacing:-1px;
+  color:var(--gold);text-shadow:0 6px 0 rgba(224,142,0,.35),0 14px 30px rgba(0,0,0,.14);
+  animation:comboIn 1.15s var(--ease) forwards;white-space:nowrap;
+}
+@keyframes comboIn{0%{opacity:0;transform:translateX(-50%) scale(.5) rotate(-8deg)}
+  25%{opacity:1;transform:translateX(-50%) scale(1.12) rotate(2deg)}
+  45%{transform:translateX(-50%) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(.95)}}
+.coinfly{position:absolute;font-size:30px;animation:coinfly .95s var(--ease) forwards;}
+@keyframes coinfly{0%{opacity:0;transform:scale(.4)}20%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.7)}}
+.confetti{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall 2.1s ease-in forwards;}
+@keyframes fall{0%{opacity:1;transform:translateY(-20px) rotate(0)}100%{opacity:0;transform:translateY(105vh) rotate(720deg)}}
+
+/* ============ 弹窗 ============ */
+.mask{
+  position:fixed;inset:0;background:rgba(18,51,59,.42);backdrop-filter:blur(6px);z-index:150;
+  display:grid;place-items:center;padding:24px;animation:fadeUp .3s var(--ease);overflow:auto;
+}
+.modal{
+  background:var(--paper);border-radius:var(--r-xl);padding:38px;max-width:760px;width:100%;
+  box-shadow:var(--shadow-l);text-align:center;animation:zoomIn .45s var(--ease);
+}
+.modal.wide{max-width:1080px;text-align:left;}
+@keyframes zoomIn{from{opacity:0;transform:scale(.88) translateY(20px)}to{opacity:1;transform:none}}
+.modal h3{font-family:var(--font-display);font-size:32px;margin:0 0 8px;letter-spacing:-.5px;}
+.modal p.lead{color:var(--ink-soft);margin:0 0 22px;font-size:16px;}
+.bigstars{display:flex;justify-content:center;gap:18px;margin:18px 0 26px;}
+.bigstars i{font-style:normal;font-size:58px;filter:grayscale(1);opacity:.3;transform:scale(.7);
+  animation:starPop .6s var(--ease) forwards;}
+.bigstars i.on{filter:none;opacity:1;}
+@keyframes starPop{to{transform:scale(1)}}
+.bigstars i:nth-child(2){animation-delay:.2s}.bigstars i:nth-child(3){animation-delay:.4s}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:26px;}
+.statbox{background:var(--mint);border-radius:var(--r-m);padding:16px 12px;}
+.statbox b{display:block;font-family:var(--font-display);font-size:28px;color:var(--teal-deep);}
+.statbox span{font-size:12px;color:var(--ink-soft);font-weight:700;letter-spacing:.5px;}
+
+/* ============ 老师看板 ============ */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-top:20px;}
+.panel{background:var(--mint);border-radius:var(--r-l);padding:22px;}
+.panel h4{font-family:var(--font-display);font-size:17px;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:11px;font-size:14px;font-weight:700;}
+.bar-row .lb{width:132px;flex:none;color:var(--ink);font-size:13px;}
+.bar-row .bar{flex:1;height:14px;border-radius:99px;background:#fff;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.05);}
+.bar-row .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--teal-soft),var(--teal));transition:width .8s var(--ease);}
+.bar-row.warn .bar i{background:linear-gradient(90deg,#FFAF9F,var(--coral));}
+.bar-row .vl{width:56px;text-align:right;color:var(--ink-soft);font-size:13px;}
+.empty{color:var(--ink-soft);font-size:14px;line-height:1.7;}
+
+/* ============ Level 4 怪兽 ============ */
+.monster-wrap{display:flex;align-items:center;gap:26px;justify-content:center;margin-bottom:18px;flex-wrap:wrap;}
+.monster{width:150px;transition:filter .5s;}
+.monster.sick{filter:saturate(.35) hue-rotate(-25deg);}
+.monster.healed{animation:champ .8s var(--ease);}
+.hpbar{width:220px;height:18px;border-radius:99px;background:#fff;box-shadow:inset 0 2px 4px rgba(0,0,0,.08);overflow:hidden;border:1px solid var(--line);}
+.hpbar i{display:block;height:100%;background:linear-gradient(90deg,#FFAF9F,#59CB9E);transition:width .7s var(--ease);}
+.tokens{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:26px 0 6px;}
+.tok{
+  font-family:var(--font-display);font-size:26px;font-weight:700;padding:10px 14px;border-radius:14px;
+  background:var(--paper);border:2px solid transparent;cursor:pointer;transition:.18s var(--ease);
+}
+.tok:hover{background:var(--mint);transform:translateY(-3px);border-color:var(--teal-soft);}
+.tok.gap{color:var(--teal-soft);border:2px dashed var(--mint-2);min-width:44px;text-align:center;}
+.tok.hit{background:#FFEFEC;border-color:var(--coral);color:var(--coral-deep);animation:shake .4s;}
+.tok.fixed{background:#E4F8F0;border-color:#57C79A;color:#0E5B41;animation:dropIn .4s var(--ease);}
+.tok.miss{opacity:.4;}
+
+/* ============ 倒计时 & 自动切题 ============ */
+.chip.timer{min-width:86px;justify-content:center;transition:background .3s,color .3s,transform .2s var(--ease);}
+.chip.timer.warn{background:#FFF0EC;border-color:#FFC8BD;color:var(--coral-deep);
+  animation:tick 1s ease-in-out infinite;}
+@keyframes tick{0%,100%{transform:scale(1)}50%{transform:scale(1.09)}}
+.autowrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;}
+.autobar{width:200px;height:8px;border-radius:99px;background:var(--mint-2);overflow:hidden;}
+.autobar i{display:block;width:0;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--teal-soft),var(--teal));transition:width linear;}
+.waithint{font-size:13px;color:var(--ink-soft);font-weight:700;}
+
+/* ============ 分篇地图（两篇 × 三关 + 结业挑战） ============ */
+.part{margin-bottom:30px;}
+.part-head{display:flex;align-items:baseline;gap:12px;margin:0 0 14px;flex-wrap:wrap;}
+.part-head .pill{color:#fff;font-size:11px;font-weight:800;letter-spacing:1.4px;
+  padding:6px 14px;border-radius:999px;box-shadow:var(--shadow-s);}
+.part-head h3{font-family:var(--font-display);font-size:21px;margin:0;}
+.part-head h3 .en{color:var(--ink-soft);font-size:15px;font-weight:600;margin-left:6px;}
+.part-head .tip{font-size:14px;color:var(--ink-soft);font-family:var(--font-display);}
+.station .step{font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--ink-soft);margin-bottom:6px;}
+.station p{min-height:56px;}
+/* ============ 打印学习报告 ============ */
+@media print{
+  body{background:#fff;}
+  .hud,.wrap,.toast-layer,.btn{display:none !important;}
+  .mask{position:static;background:none;backdrop-filter:none;padding:0;}
+  .modal{box-shadow:none;max-width:100%;animation:none;padding:0;}
+  .panel{break-inside:avoid;background:#F4FAF9;}
+}
+
+/* ============ 响应式 ============ */
+@media (max-width:1024px){
+  .hero{grid-template-columns:1fr;}
+  .stations{grid-template-columns:repeat(2,1fr);}
+  .stations::before{display:none;}
+}
+@media (max-width:640px){
+  .wrap{padding:16px 14px 50px;}
+  .stage{padding:22px 16px;border-radius:var(--r-l);}
+  .stations{grid-template-columns:1fr;}
+  .hud{padding:10px 14px;gap:8px;flex-wrap:wrap;}
+  .hud .brand p{display:none;}
+  .sentence{font-size:22px;}
+  .word{font-size:18px;padding:11px 18px;}
+}
+</style>
+</head>
+<body>
+<div class="hud">
+  <div class="brand" onclick="Game.goHome()">
+    <svg width="40" height="40" viewBox="0 0 44 44" aria-hidden="true">
+      <rect x="2" y="2" width="40" height="40" rx="13" fill="#0E9C93"/>
+      <path d="M12 30 L22 13 L32 30" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="32" cy="14" r="4.5" fill="#FFB524"/>
+    </svg>
+    <div>
+      <h1>Comparatives &amp; Superlatives</h1>
+      <p>KET GRAMMAR ENGINE · Eric English Studio</p>
+    </div>
+  </div>
+  <div class="chip" id="chipCoin">🪙 <span id="coinVal">0</span></div>
+  <div class="chip" id="chipStar">⭐ <span id="starVal">0</span>/<span id="starMax">21</span></div>
+  <div class="chip" id="chipXp">
+    <span style="font-size:13px;color:var(--ink-soft)">Lv.<b id="lvVal">1</b></span>
+    <span class="xpbar"><i id="xpFill" style="width:0%"></i></span>
+  </div>
+  <button class="btn ghost sm" onclick="Dash.open()">📊 Teacher Dashboard</button>
+</div>
+<div class="bridge-setup" id="bridgeSetup" hidden>
+  <div class="bridge-setup-card">
+    <div class="bridge-field"><label for="bridgeClassSelect">班级</label><select id="bridgeClassSelect"><option value="">正在读取班级…</option></select></div>
+    <div class="bridge-field"><label for="bridgeStudentSelect">学生</label><select id="bridgeStudentSelect"><option value="">请先选择学生</option></select></div>
+    <p class="bridge-status" id="bridgeStatus">请先选择班级和学生，再点击下方已解锁关卡开始。</p>
+  </div>
+</div>
+<div class="wrap" id="app"></div>
+<div class="toast-layer" id="fx"></div>
+<div id="modalHost"></div>
+<script>
+"use strict";
+/* ==========================================================================
+   PART A · 题库（全部 JSON 化，扩展只需往数组里加数据，无需改动组件）
+   ========================================================================== */
+
+/* --- A1. 形容词库：100 词（三升四适用，全部为 Kid's Box 1–3 / KET 核心高频词）
+   r = 变化规则编号
+   r1 = 直接 +er/+est（含以 e 结尾只加 r/st）
+   r2 = 重读闭音节双写末尾辅音
+   r3 = 辅音字母 + y → ier/iest
+   r4 = 多音节 more/most
+   r5 = 不规则（需显式给出 c / s）                                        */
+const A = (w, zh, r, c, s) => ({ w, zh, r, c, s });
+const ADJ_BANK = [
+  /* Rule 1 —— 单音节直接加 er/est（35 词） */
+  A("small","小的",1), A("tall","高的",1), A("short","矮的/短的",1), A("long","长的",1),
+  A("old","旧的/年长的",1), A("young","年轻的",1), A("new","新的",1), A("cold","冷的",1),
+  A("warm","暖和的",1), A("cool","凉快的",1), A("clean","干净的",1), A("cheap","便宜的",1),
+  A("quick","快的",1), A("slow","慢的",1), A("strong","强壮的",1), A("weak","虚弱的",1),
+  A("dark","黑暗的",1), A("light","轻的/亮的",1), A("hard","难的/硬的",1), A("soft","柔软的",1),
+  A("deep","深的",1), A("high","高的",1), A("low","低的",1), A("fast","快的",1),
+  A("kind","友好的",1), A("loud","大声的",1), A("near","近的",1), A("rich","富的",1),
+  A("poor","穷的",1), A("quiet","安静的",1), A("smart","聪明的",1), A("bright","明亮的",1),
+  A("sweet","甜的",1), A("full","满的",1), A("fresh","新鲜的",1),
+  /* Rule 1（以 e 结尾，只加 r / st，8 词） */
+  A("nice","好的",1), A("large","大的",1), A("late","晚的",1), A("safe","安全的",1),
+  A("wide","宽的",1), A("simple","简单的",1), A("brave","勇敢的",1), A("cute","可爱的",1),
+  /* Rule 2 —— 双写末尾字母（7 词） */
+  A("big","大的",2), A("hot","热的",2), A("sad","伤心的",2), A("fat","胖的",2),
+  A("thin","瘦的",2), A("wet","湿的",2), A("fit","健康的",2),
+  /* Rule 3 —— y → ier/iest（29 词） */
+  A("happy","快乐的",3), A("easy","容易的",3), A("busy","忙的",3), A("funny","有趣的",3),
+  A("heavy","重的",3), A("hungry","饿的",3), A("angry","生气的",3), A("dirty","脏的",3),
+  A("early","早的",3), A("friendly","友好的",3), A("healthy","健康的",3), A("lazy","懒的",3),
+  A("lucky","幸运的",3), A("noisy","吵的",3), A("pretty","漂亮的",3), A("sunny","晴朗的",3),
+  A("tidy","整洁的",3), A("ugly","丑的",3), A("windy","有风的",3), A("tasty","好吃的",3),
+  A("dry","干的",3), A("cloudy","多云的",3), A("rainy","下雨的",3), A("snowy","下雪的",3),
+  A("thirsty","渴的",3), A("sleepy","困的",3), A("silly","傻的",3), A("scary","吓人的",3),
+  A("naughty","淘气的",3),
+  /* Rule 4 —— more / most（18 词） */
+  A("beautiful","美丽的",4), A("expensive","昂贵的",4), A("interesting","有趣的",4),
+  A("difficult","困难的",4), A("important","重要的",4), A("delicious","美味的",4),
+  A("popular","受欢迎的",4), A("dangerous","危险的",4), A("comfortable","舒适的",4),
+  A("exciting","令人兴奋的",4), A("boring","无聊的",4), A("careful","小心的",4),
+  A("famous","著名的",4), A("useful","有用的",4), A("colourful","色彩丰富的",4),
+  A("wonderful","精彩的",4), A("polite","有礼貌的",4), A("helpful","乐于助人的",4),
+  /* Rule 5 —— 不规则（3 词） */
+  A("good","好的",5,"better","best"), A("bad","坏的",5,"worse","worst"),
+  A("far","远的",5,"farther","farthest")
+].filter(x => x.zh !== "");   /* 过滤掉占位重复项，保证词库干净 */
+
+/* --- A2. 比较句题库（Level 2）：[左, 右, 形容词, 动画类型] ---------------
+   图标由 ART 库按名字自动匹配，加句子只加一行即可。                        */
+const CMP_BANK = [
+  ["elephant","dog","big","grow"], ["mouse","cat","small","grow"], ["giraffe","horse","tall","rise"],
+  ["cheetah","turtle","fast","run"], ["rabbit","snail","quick","run"], ["lion","rabbit","strong","grow"],
+  ["whale","fish","heavy","grow"], ["monkey","panda","noisy","spin"], ["tiger","cat","dangerous","grow"],
+  ["bear","fox","big","grow"], ["bird","plane","small","spin"], ["dolphin","shark","friendly","spin"],
+  ["puppy","wolf","cute","spin"], ["horse","donkey","fast","run"], ["cow","goat","fat","grow"],
+  ["train","bike","fast","run"], ["plane","train","expensive","rise"], ["car","bus","small","grow"],
+  ["bus","taxi","cheap","grow"], ["boat","plane","slow","run"], ["bike","car","healthy","spin"],
+  ["watermelon","apple","heavy","grow"], ["banana","lemon","sweet","grow"], ["cake","salad","delicious","spin"],
+  ["ice cream","soup","cold","spin"], ["pizza","sandwich","popular","spin"], ["coffee","milk","hot","spin"],
+  ["orange","grape","big","grow"], ["chocolate","bread","sweet","spin"], ["rice","noodles","cheap","grow"],
+  ["mountain","hill","high","rise"], ["tree","flower","tall","rise"], ["sun","moon","bright","spin"],
+  ["river","lake","long","grow"], ["sea","pool","deep","grow"], ["forest","garden","large","grow"],
+  ["summer","winter","hot","spin"], ["snow","rain","cold","spin"], ["storm","wind","dangerous","spin"],
+  ["castle","house","old","rise"], ["tower","house","tall","rise"], ["hotel","tent","comfortable","grow"],
+  ["city","village","busy","spin"], ["school","library","noisy","spin"], ["shop","market","new","grow"],
+  ["museum","cinema","quiet","spin"], ["park","street","clean","spin"], ["hospital","clinic","big","grow"],
+  ["football","chess","exciting","spin"], ["swimming","running","easy","run"], ["tennis","golf","fast","run"],
+  ["basketball","baseball","popular","spin"], ["skiing","walking","dangerous","run"], ["walking","boxing","safe","run"],
+  ["maths","art","difficult","spin"], ["English","history","useful","spin"], ["homework","games","boring","spin"],
+  ["book","phone","interesting","spin"], ["teacher","student","kind","spin"], ["computer","pencil","expensive","grow"],
+  ["robot","doll","smart","spin"], ["guitar","drum","quiet","spin"], ["camera","watch","heavy","grow"],
+  ["dress","T-shirt","beautiful","spin"], ["shoes","socks","expensive","grow"], ["hat","scarf","cute","spin"],
+  ["London","Paris","big","grow"], ["Beijing","Shanghai","old","rise"], ["Egypt","Japan","hot","spin"],
+  ["beach","desert","busy","spin"], ["island","farm","quiet","spin"], ["airport","station","busy","spin"],
+  ["doctor","farmer","busy","spin"], ["baby","child","small","grow"], ["grandfather","father","old","rise"],
+  ["sister","brother","tall","rise"], ["friend","stranger","friendly","spin"], ["clown","teacher","funny","spin"],
+  ["star","planet","bright","spin"], ["rock","feather","heavy","grow"], ["gold","silver","expensive","grow"],
+  ["morning","night","quiet","spin"], ["holiday","exam","exciting","spin"], ["water","juice","healthy","spin"],
+  ["desert","forest","dry","spin"], ["kitten","tiger","weak","grow"], ["shark","goldfish","scary","spin"],
+  ["balloon","stone","light","rise"], ["door","window","wide","grow"], ["road","path","long","grow"]
+];
+
+/* --- A3. 最高级题库（Level 3）：{q:问句主体, adj, opts:[4项], ans:索引} --- */
+const SUP_BANK = [
+  {t:"animal",adj:"fast",opts:["cheetah","horse","rabbit","turtle"],ans:0},
+  {t:"animal",adj:"big",opts:["whale","elephant","dog","mouse"],ans:0},
+  {t:"animal",adj:"tall",opts:["giraffe","horse","cow","cat"],ans:0},
+  {t:"animal",adj:"slow",opts:["snail","turtle","panda","bear"],ans:0},
+  {t:"animal",adj:"dangerous",opts:["shark","dolphin","rabbit","goldfish"],ans:0},
+  {t:"animal",adj:"small",opts:["ant","mouse","cat","fox"],ans:0},
+  {t:"animal",adj:"heavy",opts:["elephant","horse","dog","bird"],ans:0},
+  {t:"animal",adj:"noisy",opts:["monkey","fish","snail","turtle"],ans:0},
+  {t:"animal",adj:"cute",opts:["kitten","shark","spider","snake"],ans:0},
+  {t:"animal",adj:"strong",opts:["lion","rabbit","mouse","bird"],ans:0},
+  {t:"food",adj:"sweet",opts:["chocolate","lemon","salad","soup"],ans:0},
+  {t:"food",adj:"healthy",opts:["salad","cake","chips","candy"],ans:0},
+  {t:"food",adj:"hot",opts:["soup","ice cream","milk","juice"],ans:0},
+  {t:"food",adj:"popular",opts:["pizza","soup","bread","rice"],ans:0},
+  {t:"fruit",adj:"big",opts:["watermelon","orange","apple","grape"],ans:0},
+  {t:"fruit",adj:"small",opts:["grape","apple","orange","watermelon"],ans:0},
+  {t:"food",adj:"cold",opts:["ice cream","coffee","soup","tea"],ans:0},
+  {t:"transport",adj:"fast",opts:["plane","train","car","bike"],ans:0},
+  {t:"transport",adj:"slow",opts:["bike","bus","train","plane"],ans:0},
+  {t:"transport",adj:"expensive",opts:["plane","train","bus","bike"],ans:0},
+  {t:"transport",adj:"cheap",opts:["bike","bus","train","plane"],ans:0},
+  {t:"building",adj:"tall",opts:["tower","house","tent","shop"],ans:0},
+  {t:"place",adj:"busy",opts:["city","village","farm","island"],ans:0},
+  {t:"place",adj:"quiet",opts:["library","market","school","street"],ans:0},
+  {t:"building",adj:"old",opts:["castle","hotel","cinema","shop"],ans:0},
+  {t:"place",adj:"noisy",opts:["station","garden","forest","desert"],ans:0},
+  {t:"place",adj:"clean",opts:["forest","street","market","city"],ans:0},
+  {t:"nature",n:"place",adj:"high",opts:["mountain","hill","tree","house"],ans:0},
+  {t:"nature",n:"",adj:"long",opts:["river","road","path","street"],ans:0},
+  {t:"nature",n:"place",adj:"deep",opts:["sea","lake","river","pool"],ans:0},
+  {t:"nature",n:"",adj:"bright",opts:["sun","moon","star","lamp"],ans:0},
+  {t:"nature",n:"place",adj:"dry",opts:["desert","forest","garden","lake"],ans:0},
+  {t:"weather",n:"",adj:"cold",opts:["snow","rain","wind","sun"],ans:0},
+  {t:"weather",adj:"dangerous",opts:["storm","cloud","wind","rain"],ans:0},
+  {t:"sport",adj:"exciting",opts:["football","chess","golf","yoga"],ans:0},
+  {t:"sport",adj:"slow",opts:["walking","running","swimming","skiing"],ans:0},
+  {t:"sport",adj:"popular",opts:["football","golf","chess","boxing"],ans:0},
+  {t:"school",adj:"difficult",opts:["maths","art","music","sport"],ans:0},
+  {t:"school",adj:"useful",opts:["English","chess","drawing","dancing"],ans:0},
+  {t:"thing",adj:"boring",opts:["homework","games","holiday","party"],ans:0},
+  {t:"thing",adj:"expensive",opts:["gold","silver","stone","paper"],ans:0},
+  {t:"thing",adj:"light",opts:["feather","rock","book","chair"],ans:0},
+  {t:"thing",adj:"heavy",opts:["rock","balloon","feather","paper"],ans:0},
+  {t:"thing",adj:"interesting",opts:["book","stone","chair","box"],ans:0},
+  {t:"person",adj:"old",opts:["grandfather","father","sister","baby"],ans:0},
+  {t:"person",adj:"young",opts:["baby","child","teacher","grandfather"],ans:0},
+  {t:"person",adj:"funny",opts:["clown","doctor","driver","farmer"],ans:0},
+  {t:"person",adj:"busy",opts:["doctor","baby","panda","turtle"],ans:0}
+];
+
+/* --- A4. Grammar Doctor 错题库（Level 4） ---------------------------------
+   t = 句子分块（"␣" 表示缺词空位），e = 出错的块索引，f = 正确答案（""表示删掉）
+   o = 三个候选，ty = 错误分类（用于老师看板诊断），tip = 中文讲解            */
+const G = (t, e, f, o, ty, tip, side) => ({ t, e, f, o, ty, tip, side });
+const DOC_BANK = [
+  G(["He","is","more taller","than","Tom."],2,"taller",["taller","more tall","tallest"],"dbl","-er 和 more 只能用一个，taller 已经是比较级了。","cmp"),
+  G(["This","book","is","more easier","than","that","one."],3,"easier",["easier","more easy","easiest"],"dbl","easy 已经变成 easier，不能再加 more。","cmp"),
+  G(["My","bag","is","more heavier","than","yours."],3,"heavier",["heavier","more heavy","heaviest"],"dbl","heavy → heavier，more 多余。","cmp"),
+  G(["She","is","more younger","than","me."],2,"younger",["younger","more young","youngest"],"dbl","单音节词直接加 -er。","cmp"),
+  G(["The","test","was","more harder","today."],3,"harder",["harder","more hard","hardest"],"dbl","hard → harder，不要重复。","cmp"),
+  G(["He","is","the","most tallest","boy."],3,"tallest",["tallest","most tall","taller"],"most","most 和 -est 只能留一个。","sup"),
+  G(["It","is","the","most cheapest","shop."],3,"cheapest",["cheapest","most cheap","cheaper"],"most","cheap → cheapest，most 多余。","sup"),
+  G(["This","is","the","most easiest","question."],3,"easiest",["easiest","most easy","easier"],"most","easy → easiest。","sup"),
+  G(["She","is","the","most funniest","girl."],3,"funniest",["funniest","most funny","funnier"],"most","funny → funniest。","sup"),
+  G(["Tom","is","taller","␣","Mike."],3,"than",["than","then","that"],"than","两者比较必须用 than。","cmp"),
+  G(["My","hair","is","longer","␣","hers."],4,"than",["than","as","of"],"than","比较级后面接 than。","cmp"),
+  G(["Winter","is","colder","␣","autumn."],3,"than",["than","then","from"],"than","记住：比较级 + than。","cmp"),
+  G(["A","plane","is","faster","␣","a","train."],4,"than",["than","that","then"],"than","比较两样东西要加 than。","cmp"),
+  G(["This","film","is","more interesting","␣","that","one."],4,"than",["than","then","of"],"than","more + 形容词后面同样要 than。","cmp"),
+  G(["She","is","␣","tallest","in","our","class."],2,"the",["the","a","an"],"the","最高级前面一定要加 the。","sup"),
+  G(["It","is","␣","best","day","of","the","year."],2,"the",["the","a","most"],"the","the best，最高级都带 the。","sup"),
+  G(["He","is","␣","most popular","singer","in","China."],2,"the",["the","a","more"],"the","the most popular，不要漏 the。","sup"),
+  G(["Monday","is","␣","busiest","day","for","me."],2,"the",["the","a","most"],"the","the busiest day。","sup"),
+  G(["This","is","␣","biggest","cake","in","the","shop."],2,"the",["the","a","one"],"the","the biggest。","sup"),
+  G(["My","English","is","gooder","than","before."],3,"better",["better","more good","goodest"],"irr","good 是不规则词：good → better → best。","cmp"),
+  G(["Today","is","the","goodest","day!"],3,"best",["best","goodest","most good"],"irr","good 的最高级是 best。","sup"),
+  G(["The","weather","is","badder","than","yesterday."],3,"worse",["worse","badder","more bad"],"irr","bad → worse → worst。","cmp"),
+  G(["That","was","the","baddest","film","ever."],3,"worst",["worst","baddest","most bad"],"irr","bad 的最高级是 worst。","sup"),
+  G(["My","house","is","more far","than","the","school."],3,"farther",["farther","more far","farrer"],"irr","far → farther → farthest。","cmp"),
+  G(["He","has","gooder","marks","than","me."],2,"better",["better","gooder","more good"],"irr","good 的比较级是 better。","cmp"),
+  G(["My","cat","is","more big","than","yours."],3,"bigger",["bigger","more big","biger"],"cmp","单音节词用 -er，big 还要双写 g。","cmp"),
+  G(["This","box","is","more heavy","than","that","box."],3,"heavier",["heavier","more heavy","heavyer"],"cmp","辅音+y → 变 i 加 er。","cmp"),
+  G(["The","red","car","is","more fast","than","the","blue","one."],4,"faster",["faster","more fast","fastest"],"cmp","fast 是单音节，直接 faster。","cmp"),
+  G(["She","is","beautifuler","than","her","sister."],2,"more beautiful",["more beautiful","beautifuler","most beautiful"],"cmp","多音节形容词用 more。","cmp"),
+  G(["Maths","is","difficulter","than","art."],2,"more difficult",["more difficult","difficulter","most difficult"],"cmp","difficult 是三音节，用 more。","cmp"),
+  G(["My","room","is","cleaner","than","you."],5,"yours",["yours","you","your"],"obj","比较的是房间和房间，要用 yours = your room。","cmp"),
+  G(["His","bike","is","newer","than","me."],5,"mine",["mine","me","my"],"obj","比较对象要一致：his bike vs mine。","cmp"),
+  G(["Her","hair","is","longer","than","Anna."],5,"Anna's",["Anna's","Anna","Annas"],"obj","要比头发和头发：Anna's = Anna's hair。","cmp"),
+  G(["Our","school","is","bigger","than","them."],5,"theirs",["theirs","them","their"],"obj","them 是人，要用 theirs 指他们的学校。","cmp"),
+  G(["This","phone","is","cheaper","than","he."],5,"his",["his","he","him"],"obj","比较手机和手机：his = his phone。","cmp"),
+  G(["She","is","tallest","girl","in","the","class."],2,"the tallest",["the tallest","tallest","most tall"],"the","最高级要写成 the tallest。","sup"),
+  G(["Sam","runs","the","fast","in","our","team."],3,"fastest",["fastest","faster","most fast"],"sup","the 后面要用最高级 fastest。","sup"),
+  G(["It","is","the","hoter","day","of","summer."],3,"hottest",["hottest","hoter","hotest"],"spell","hot 要双写 t：hottest。","sup"),
+  G(["He","is","the","bigest","boy","here."],3,"biggest",["biggest","bigest","most big"],"spell","big 双写 g：biggest。","sup"),
+  G(["I","am","hapier","today","than","yesterday."],2,"happier",["happier","hapier","more happy"],"spell","happy → happier，p 不能少。","cmp"),
+  G(["This","is","the","funnyest","story."],3,"funniest",["funniest","funnyest","most funny"],"spell","y 变 i 再加 est。","sup"),
+  G(["My","brother","is","thiner","than","me."],3,"thinner",["thinner","thiner","more thin"],"spell","thin 双写 n：thinner。","cmp"),
+  G(["The","sun","is","biger","than","the","moon."],3,"bigger",["bigger","biger","more big"],"spell","big 要双写。","cmp"),
+  G(["Your","room","is","tidyer","than","mine."],3,"tidier",["tidier","tidyer","more tidy"],"spell","tidy → tidier。","cmp"),
+  G(["It","is","the","most","interesting","␣","all."],5,"of",["of","in","than"],"prep","the most ... of all 固定搭配。","sup"),
+  G(["He","is","the","best","player","␣","the","world."],5,"in",["in","of","at"],"prep","in the world / in the class 用 in。","sup"),
+  G(["Sara","is","the","youngest","␣","the","three","girls."],4,"of",["of","in","than"],"prep","of the three 表示在三个之中。","sup"),
+  G(["This","cake","is","more delicious","than","other","cake."],5,"the other",["the other","other","others"],"art","另一块蛋糕：the other cake。","cmp"),
+  G(["An","elephant","is","more bigger","than","a","horse."],3,"bigger",["bigger","more big","biggest"],"dbl","bigger 已经是比较级。","cmp"),
+  G(["Which","is","␣","most","expensive","car?"],2,"the",["the","a","an"],"the","最高级 + the。","sup"),
+  G(["My","dog","is","more friendlier","than","his."],3,"friendlier",["friendlier","more friendly","friendliest"],"dbl","friendly → friendlier，不加 more。","cmp"),
+  G(["The","blue","bag","is","the","cheaper","of","the","three."],5,"cheapest",["cheapest","cheaper","more cheap"],"sup","三者以上用最高级。","sup"),
+  G(["Ben","is","more older","than","his","sister."],2,"older",["older","more old","oldest"],"dbl","old → older。","cmp"),
+  G(["It","was","the","more","exciting","match","of","the","year."],3,"most",["most","more","much"],"sup","最高级用 the most。","sup"),
+  G(["China","is","larger","␣","Japan."],3,"than",["than","then","that"],"than","别忘了 than。","cmp"),
+  G(["He","speaks","English","gooder","than","me."],3,"better",["better","gooder","best"],"irr","good/well → better。","cmp"),
+  G(["This","is","the","most","hardest","test."],4,"hardest",["hardest","most hard","harder"],"most","most 和 -est 不能同时用。","sup"),
+  G(["She","sings","more","beautiful","than","me."],3,"beautifully",["beautifully","beautiful","beautifuler"],"adv","修饰动词 sing 要用副词 beautifully。","cmp"),
+  G(["A","lion","is","dangerouser","than","a","cat."],3,"more dangerous",["more dangerous","dangerouser","most dangerous"],"cmp","多音节形容词用 more。","cmp"),
+  G(["Mount","Tai","is","not","as","tall","␣","Mount","Everest."],6,"as",["as","than","then","that"].slice(0,3),"than","as ... as 结构两边都用 as。","cmp"),
+  G(["She","is","the","most tall","girl."],3,"tallest",["tallest","most tall","taller"],"most","单音节形容词用 -est，不用 most。","sup"),
+  G(["This","is","␣","best","cake","of","all."],2,"the",["the","a","most"],"the","最高级前面必须有 the。","sup"),
+  G(["Tom","is","the","goodest","student","in","class."],3,"best",["best","goodest","most good"],"irr","good 的最高级是 best。","sup"),
+  G(["It","is","the","most big","park","in","town."],3,"biggest",["biggest","most big","bigger"],"most","big 双写 g：biggest，不用 most。","sup"),
+  G(["This","is","the","most funny","film","of","the","year."],3,"funniest",["funniest","most funny","funnier"],"most","funny → funniest。","sup"),
+  G(["Anna","is","the","tallest","␣","the","four","girls."],4,"of",["of","in","than"],"prep","of the four 表示“四个人之中”。","sup")
+];
+
+/* ==========================================================================
+   PART B · 核心引擎（规则引擎 / 插画 / 音效 / 朗读 / 状态 / 特效）
+   ========================================================================== */
+
+/* --- B1. 比较级·最高级规则引擎 ------------------------------------------ */
+const VOWELS = "aeiou";
+function buildForms(item){
+  const w = item.w;
+  switch(item.r){
+    case 1: {                                   // 直接加 er/est（e 结尾只加 r/st）
+      const e = w.endsWith("e");
+      return { c: w + (e?"r":"er"), s: w + (e?"st":"est"),
+               steps: e ? [w, w+"r", w+"st"] : [w, w+"er", w+"est"] };
+    }
+    case 2: {                                   // 重读闭音节双写末尾辅音
+      const d = w + w.slice(-1);
+      return { c: d+"er", s: d+"est", steps:[w, d, d+"er"] };
+    }
+    case 3: {                                   // 辅音 + y → ier / iest
+      const base = w.slice(0,-1);
+      return { c: base+"ier", s: base+"iest", steps:[w, base+"i", base+"ier"] };
+    }
+    case 4:                                     // 多音节 more / most
+      return { c:"more "+w, s:"most "+w, steps:[w, "more "+w, "most "+w] };
+    default:                                    // 不规则
+      return { c:item.c, s:item.s, steps:[w, item.c, item.s] };
+  }
+}
+const RULE_META = {
+  1:{name:"Rule 1 · 直接 +er/est", tip:"单音节形容词直接加 -er / -est（以 e 结尾只加 -r / -st）。", color:"#0E9C93"},
+  2:{name:"Rule 2 · 双写末尾字母", tip:"重读闭音节（一个元音+一个辅音结尾）要双写最后一个辅音字母再加 -er / -est。", color:"#4DA3FF"},
+  3:{name:"Rule 3 · y → ier/iest", tip:"辅音字母 + y 结尾，把 y 变成 i，再加 -er / -est。", color:"#FFB524"},
+  4:{name:"Rule 4 · more / most", tip:"两个音节以上的长形容词，前面加 more / most，单词本身不变。", color:"#FF7D6B"},
+  5:{name:"Rule 5 · 不规则变化", tip:"这些词必须背下来：good-better-best，bad-worse-worst，far-farther-farthest。", color:"#6C63D8"}
+};
+/* 预处理词库：把三态直接算好，供各关卡调用 */
+const ADJS = ADJ_BANK.map(it => { const f = buildForms(it); return {...it, ...f}; });
+const ADJ_MAP = {}; ADJS.forEach(a => ADJ_MAP[a.w] = a);
+function formsOf(word){                        /* 供比较句/最高级句使用 */
+  if (ADJ_MAP[word]) return ADJ_MAP[word];
+  const guess = { w:word, r:(word.length>6?4:1), zh:"" };
+  return {...guess, ...buildForms(guess)};
+}
+
+/* --- B2. 插画库：统一风格的 SVG 贴纸（柔和色块 + 大字形主体） ------------- */
+const ICONS = {
+  elephant:"🐘",dog:"🐶",mouse:"🐭",cat:"🐱",giraffe:"🦒",horse:"🐴",cheetah:"🐆",turtle:"🐢",
+  rabbit:"🐰",snail:"🐌",lion:"🦁",whale:"🐳",fish:"🐟",monkey:"🐵",panda:"🐼",tiger:"🐯",
+  bear:"🐻",fox:"🦊",bird:"🐦",dolphin:"🐬",shark:"🦈",puppy:"🐕",cow:"🐮",goat:"🐐",
+  donkey:"🫏",kitten:"🐈",goldfish:"🐠",ant:"🐜",spider:"🕷️",snake:"🐍",wolf:"🐺",
+  train:"🚆",bike:"🚲",plane:"✈️",car:"🚗",bus:"🚌",taxi:"🚕",boat:"⛵",
+  watermelon:"🍉",apple:"🍎",lemon:"🍋",banana:"🍌",cake:"🍰",salad:"🥗","ice cream":"🍦",
+  soup:"🍲",pizza:"🍕",sandwich:"🥪",coffee:"☕",milk:"🥛",orange:"🍊",grape:"🍇",
+  chocolate:"🍫",bread:"🍞",rice:"🍚",noodles:"🍜",chips:"🍟",candy:"🍬",tea:"🍵",
+  juice:"🧃",water:"💧",fruit:"🍏",
+  mountain:"⛰️",hill:"🏞️",tree:"🌳",flower:"🌸",sun:"☀️",moon:"🌙",river:"🏞️",lake:"🏕️",
+  sea:"🌊",pool:"🏊",forest:"🌲",garden:"🌷",desert:"🏜️",island:"🏝️",star:"⭐",planet:"🪐",
+  rock:"🪨",feather:"🪶",snow:"❄️",rain:"🌧️",storm:"⛈️",wind:"🌬️",cloud:"☁️",lamp:"💡",
+  castle:"🏰",house:"🏠",tower:"🗼",hotel:"🏨",tent:"⛺",city:"🏙️",village:"🏘️",school:"🏫",
+  library:"📚",shop:"🏬",market:"🛒",museum:"🏛️",cinema:"🎬",park:"🌳",street:"🛣️",
+  hospital:"🏥",clinic:"💊",airport:"🛫",station:"🚉",farm:"🚜",beach:"🏖️",road:"🛣️",
+  path:"🥾",door:"🚪",window:"🪟",
+  football:"⚽",chess:"♟️",swimming:"🏊",running:"🏃",tennis:"🎾",golf:"⛳",basketball:"🏀",
+  baseball:"⚾",skiing:"⛷️",walking:"🚶",yoga:"🧘",boxing:"🥊",dancing:"💃",drawing:"🎨",
+  maths:"➗",art:"🎨",English:"🔤",history:"📜",homework:"📝",games:"🎮",book:"📖",phone:"📱",
+  computer:"💻",pencil:"✏️",robot:"🤖",doll:"🧸",guitar:"🎸",drum:"🥁",camera:"📷",watch:"⌚",
+  music:"🎵",sport:"🏅",exam:"📄",party:"🎉",holiday:"🏖️",
+  dress:"👗","T-shirt":"👕",shoes:"👟",socks:"🧦",hat:"🎩",scarf:"🧣",
+  London:"🇬🇧",Paris:"🗼",Beijing:"🏯",Shanghai:"🌆",Egypt:"🐫",Japan:"🗾",China:"🇨🇳",
+  teacher:"👩‍🏫",student:"🧑‍🎓",doctor:"👨‍⚕️",farmer:"👨‍🌾",baby:"👶",child:"🧒",
+  grandfather:"👴",father:"👨",sister:"👧",brother:"👦",friend:"🧑‍🤝‍🧑",stranger:"🕵️",
+  clown:"🤡",driver:"🚖",singer:"🎤",
+  gold:"🥇",silver:"🥈",morning:"🌅",night:"🌃",summer:"🌞",winter:"⛄",balloon:"🎈",
+  stone:"🪨",paper:"📄",chair:"🪑",box:"📦"
+};
+const BLOB_COLORS = ["#DFF3F0","#E5EFFF","#FFF1DA","#FFE9E4","#EAE7FF","#E4F6E7"];
+function artSVG(name, size){
+  const glyph = ICONS[name] || ICONS[name.toLowerCase()] || "❔";
+  let h = 0; for (let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) >>> 0;
+  const bg = BLOB_COLORS[h % BLOB_COLORS.length];
+  const dot = BLOB_COLORS[(h+3) % BLOB_COLORS.length];
+  return \`<svg viewBox="0 0 200 172" role="img" aria-label="\${name}">
+    <path d="M100 6c46 0 88 22 88 68 0 48-38 92-88 92S12 122 12 74C12 28 54 6 100 6z" fill="\${bg}"/>
+    <circle cx="34" cy="34" r="9" fill="\${dot}"/><circle cx="170" cy="46" r="6" fill="\${dot}"/>
+    <circle cx="160" cy="132" r="8" fill="\${dot}" opacity=".7"/>
+    <text x="100" y="112" text-anchor="middle" font-size="\${size||86}">\${glyph}</text>
+  </svg>\`;
+}
+function sticker(name, extraClass, attrs){
+  return \`<div class="sticker \${extraClass||""}" \${attrs||""}>
+    <div class="crown">👑</div>\${artSVG(name)}<div class="name">\${name}</div></div>\`;
+}
+
+/* --- B3. 音效：运行时合成 WAV，用 HTMLAudioElement 播放（离线、无依赖） --- */
+const Sound = (() => {
+  function wav(notes){                 /* notes: [[频率, 时长秒, 音量]] 依次拼接 */
+    const sr = 22050; let total = 0;
+    notes.forEach(n => total += Math.floor(n[1]*sr));
+    const buf = new ArrayBuffer(44 + total*2), v = new DataView(buf);
+    const ws = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+    ws(0,"RIFF"); v.setUint32(4, 36+total*2, true); ws(8,"WAVEfmt ");
+    v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+    v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true);
+    v.setUint16(34,16,true); ws(36,"data"); v.setUint32(40,total*2,true);
+    let p = 44;
+    notes.forEach(([f,d,g]) => {
+      const len = Math.floor(d*sr);
+      for(let i=0;i<len;i++){
+        const t = i/sr, env = Math.min(1, i/(sr*0.012)) * Math.pow(1 - i/len, 2.1);
+        const s = (Math.sin(2*Math.PI*f*t)*0.7 + Math.sin(4*Math.PI*f*t)*0.25) * env * (g||0.3);
+        v.setInt16(p, Math.max(-1,Math.min(1,s))*32767, true); p += 2;
+      }
+    });
+    let bin = "", bytes = new Uint8Array(buf);
+    for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+    return "data:audio/wav;base64," + btoa(bin);
+  }
+  const lib = {
+    right : wav([[784,.09,.28],[988,.09,.28],[1319,.22,.26]]),
+    coin  : wav([[1319,.05,.22],[1760,.11,.2]]),
+    wrong : wav([[392,.13,.2],[330,.2,.18]]),          /* 柔和低音，不刺耳 */
+    click : wav([[880,.04,.14]]),
+    combo : wav([[880,.07,.24],[1109,.07,.24],[1319,.07,.24],[1760,.2,.22]]),
+    level : wav([[523,.11,.26],[659,.11,.26],[784,.11,.26],[1047,.32,.28]])
+  };
+  const pool = {}; Object.keys(lib).forEach(k => { pool[k] = [0,1,2].map(() => new Audio(lib[k])); });
+  const idx = {}; let on = true;
+  return {
+    play(k){ if(!on || !pool[k]) return; const i = (idx[k]||0)%3; idx[k] = i+1;
+             const a = pool[k][i]; try{ a.currentTime = 0; a.play().catch(()=>{}); }catch(e){} },
+    toggle(){ on = !on; return on; }, get enabled(){ return on; }
+  };
+})();
+
+/* --- B4. 朗读：SpeechSynthesis，优先英式发音 ------------------------------ */
+const Speech = (() => {
+  let voice = null;
+  function pick(){
+    const vs = speechSynthesis.getVoices();
+    voice = vs.find(v => /en-GB/i.test(v.lang) && /female|Serena|Kate|Sonia|Libby/i.test(v.name))
+         || vs.find(v => /en-GB/i.test(v.lang))
+         || vs.find(v => /en[-_]/i.test(v.lang)) || null;
+  }
+  if ("speechSynthesis" in window){ pick(); speechSynthesis.onvoiceschanged = pick; }
+  let seq = 0;            /* 每次朗读递增，用来识别"最新一次" */
+  let active = 0;         /* 正在朗读的那一次的编号；0 = 当前没有朗读 */
+  let guard = null;       /* 硬上限定时器 */
+  let poll = null;        /* 兜底看门狗轮询 */
+  let waiters = [];       /* 等朗读结束后要执行的回调 */
+  function flush(){ const list = waiters; waiters = []; list.forEach(fn => { try{ fn(); }catch(e){} }); }
+  /* 只有"最新一次"朗读结束才算结束；被 cancel() 顶掉的旧朗读不触发 */
+  function done(n){ if (n !== seq) return; active = 0; clearTimeout(guard); clearInterval(poll); flush(); }
+  /* 兜底看门狗：onend 在部分浏览器/未装语音包/静音时不会触发，靠轮询引擎状态收尾 */
+  function watch(n){
+    clearInterval(poll);
+    let started = false, ticks = 0;
+    poll = setInterval(() => {
+      if (n !== seq){ clearInterval(poll); return; }
+      ticks++;
+      const busy = speechSynthesis.speaking || speechSynthesis.pending;
+      if (busy) started = true;
+      /* 已经开口又停下 = 读完了。还没开口就多等等——课室老电脑首次调用
+         语音引擎要预热，等太短会「判定读完了」但其实一秒后才开口，
+         结果声音压到下一题上。最多等 3 秒仍无动静才放行。 */
+      if (!busy && (started || ticks >= 20)){ clearInterval(poll); done(n); }
+    }, 150);
+  }
+  return {
+    say(text, rate){
+      if(!("speechSynthesis" in window)){ flush(); return; }
+      const n = ++seq; active = n;
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(text).replace(/[_＿]/g," "));
+      u.lang = "en-GB"; u.rate = rate || .88; u.pitch = 1.05;
+      if (voice) u.voice = voice;
+      u.onend = () => done(n);
+      u.onerror = () => done(n);
+      /* 硬上限：无论如何 20 秒后必须放行 */
+      clearTimeout(guard); guard = setTimeout(() => done(n), 20000);
+      /* cancel() 在 Chrome 里是异步的，紧跟着 speak() 有概率被一并取消或让引擎卡死，
+         隔一帧再发音更稳 */
+      setTimeout(() => {
+        if (n !== seq) return;
+        try{ speechSynthesis.speak(u); }catch(e){ done(n); return; }
+        watch(n);
+      }, 60);
+    },
+    speaking(){ return active !== 0; },
+    /* 朗读结束后执行 cb；当前没有朗读就下一帧立即执行 */
+    after(cb){
+      if (!("speechSynthesis" in window) || active === 0){ setTimeout(cb, 0); return; }
+      waiters.push(cb);
+    },
+    stop(){
+      if("speechSynthesis" in window) speechSynthesis.cancel();
+      seq++; active = 0; clearTimeout(guard); clearInterval(poll); waiters = [];
+    }
+  };
+})();
+
+/* --- B5. 全局状态 + 本地存档 --------------------------------------------- */
+const SAVE_KEY = "ket_cs_trainer_v3";   /* 六关结构 + 倒计时，换 key 避免旧存档冲突 */
+let activeSaveKey = SAVE_KEY;
+const S = {
+  coins:0, xp:0, plv:1, unlocked:1,
+  stars:{1:0,2:0,3:0,4:0,5:0,6:0},
+  best:{1:0,2:0,3:0,4:0,5:0,6:0},  /* 各关最好正确率 */
+  done:{1:0,2:0,3:0,4:0,5:0,6:0},  /* 各关完成次数 */
+  time:{1:0,2:0,3:0,4:0,5:0,6:0},  /* 各关累计用时（秒） */
+  rule:{1:{a:0,t:0},2:{a:0,t:0},3:{a:0,t:0},4:{a:0,t:0},5:{a:0,t:0}},
+  side:{cmp:{a:0,t:0}, sup:{a:0,t:0}}, /* 比较级篇 / 最高级篇 正确率对比 */
+  err:{},                              /* Grammar Doctor 错误分类计数 */
+  qTotal:0, qRight:0
+};
+function save(){ try{ localStorage.setItem(activeSaveKey, JSON.stringify(S)); }catch(e){} }
+function load(){
+  try{ const d = JSON.parse(localStorage.getItem(activeSaveKey)); if(d) Object.assign(S, d); }catch(e){}
+}
+const XP_PER_LV = 120;
+function addXP(n){
+  S.xp += n; const nl = Math.floor(S.xp / XP_PER_LV) + 1;
+  if (nl > S.plv){ S.plv = nl; Sound.play("level"); confetti(); }
+  syncHUD();
+}
+function addCoins(n, ev){
+  S.coins += n; Sound.play("coin"); if (ev) coinFly(ev, n); syncHUD();
+}
+function syncHUD(){
+  const tot = Object.values(S.stars).reduce((a,b)=>a+b,0);
+  set("coinVal", S.coins); set("starVal", tot); set("starMax", MAX_STARS); set("lvVal", S.plv);
+  const bar = document.getElementById("xpFill");
+  if (bar) bar.style.width = ((S.xp % XP_PER_LV) / XP_PER_LV * 100) + "%";
+  ["chipCoin","chipStar"].forEach(id => {
+    const el = document.getElementById(id); if(!el) return;
+    el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+  });
+  save();
+}
+const set = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+const $ = s => document.querySelector(s);
+const shuffle = a => { a = a.slice(); for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const pickN = (arr, n) => shuffle(arr).slice(0, n);
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const article = w => /^[aeiou]/i.test(w) ? "an" : "a";
+
+/* --- B6. 特效层：Combo 飘字 / 金币 / 彩带 --------------------------------- */
+const COMBO_WORDS = ["Great Job","Excellent","Perfect","Amazing","Fantastic","Unstoppable"];
+function comboText(n){
+  const fx = document.getElementById("fx");
+  const d = document.createElement("div");
+  d.className = "combo";
+  d.textContent = (n>=3 ? "COMBO x"+n+" · " : "") + COMBO_WORDS[Math.min(n-1, COMBO_WORDS.length-1)] + "!";
+  fx.appendChild(d); setTimeout(()=>d.remove(), 1200);
+  if (n>=3) Sound.play("combo");
+}
+function coinFly(ev, n){
+  const fx = document.getElementById("fx");
+  const x = ev && ev.clientX ? ev.clientX : innerWidth/2, y = ev && ev.clientY ? ev.clientY : innerHeight/2;
+  for(let i=0;i<Math.min(n,6);i++){
+    const c = document.createElement("div");
+    c.className = "coinfly"; c.textContent = "🪙";
+    c.style.left = x+"px"; c.style.top = y+"px";
+    c.style.setProperty("--dx", (Math.random()*160-80)+"px");
+    c.style.setProperty("--dy", (-90-Math.random()*70)+"px");
+    c.style.animationDelay = (i*0.06)+"s";
+    fx.appendChild(c); setTimeout(()=>c.remove(), 1300);
+  }
+}
+function confetti(){
+  const fx = document.getElementById("fx");
+  const cols = ["#0E9C93","#4DA3FF","#FFB524","#FF7D6B","#6C63D8","#59CB9E"];
+  for(let i=0;i<70;i++){
+    const p = document.createElement("div");
+    p.className = "confetti";
+    p.style.left = Math.random()*100+"vw";
+    p.style.background = cols[i%cols.length];
+    p.style.animationDelay = (Math.random()*0.7)+"s";
+    p.style.animationDuration = (1.6+Math.random()*1.1)+"s";
+    fx.appendChild(p); setTimeout(()=>p.remove(), 3200);
+  }
+}
+/* 弹窗 */
+function modal(html, wide){
+  document.getElementById("modalHost").innerHTML =
+    \`<div class="mask" onclick="if(event.target===this)closeModal()"><div class="modal \${wide?'wide':''}">\${html}</div></div>\`;
+}
+function closeModal(){ document.getElementById("modalHost").innerHTML = ""; }
+
+/* ==========================================================================
+   PART C · 关卡框架（进度 / 判题 / 结算）+ 首页
+   ========================================================================== */
+const LEVELS = [
+  /* ---- PART 1 · 比较级篇：变形 → 句型 → 纠错 ---- */
+  {id:1, part:"cmp", name:"Word Builder", zh:"变形工厂 · 比较级", icon:"🔤", n:8,
+   mod:()=>L1, cfg:{mode:"c"}, color:"#0E9C93", desc:"拖出正确的比较级，掌握五大变化规则。"},
+  {id:2, part:"cmp", name:"Compare Arena", zh:"比较竞技场", icon:"⚖️", n:8,
+   mod:()=>L2, cfg:{}, color:"#12B3A6", desc:"看图组句，练熟 “…er + than…” 句型。"},
+  {id:3, part:"cmp", name:"Grammar Doctor I", zh:"语法急诊室 · 比较级", icon:"🩺", n:8,
+   mod:()=>L4, cfg:{side:"cmp"}, color:"#3FBF9E", time:30, desc:"治好漏写 than、more 与 -er 重复。"},
+  /* ---- PART 2 · 最高级篇：同样三步，结构对称 ---- */
+  {id:4, part:"sup", name:"Word Builder II", zh:"变形工厂 · 最高级", icon:"🔠", n:8,
+   mod:()=>L1, cfg:{mode:"s"}, color:"#4DA3FF", desc:"同样五大规则，这次拖出最高级。"},
+  {id:5, part:"sup", name:"Superlative Challenge", zh:"最高级擂台", icon:"🏆", n:8,
+   mod:()=>L3, cfg:{}, color:"#FFB524", desc:"四选一找冠军，学会 the + 最高级。"},
+  {id:6, part:"sup", name:"Grammar Doctor II", zh:"语法急诊室 · 最高级", icon:"💊", n:8,
+   mod:()=>L4, cfg:{side:"sup"}, color:"#FF7D6B", time:30, desc:"治好漏 the、most 与 -est 重复。"}
+];
+const MAX_STARS = LEVELS.length * 3;
+const LV = id => LEVELS.find(l => l.id === id);
+const timeOf = id => (LV(id) && LV(id).time) || QUESTION_TIME;
+const QUESTION_TIME = 15;                 /* 每题默认倒计时秒数；关卡可用 time 字段单独覆盖 */
+const NEXT_DELAY = { right: 1000 };       /* 答对后停留多久自动进入下一题（毫秒）；答错不自动切，等学生点按钮 */
+
+const Game = {
+  _auto: null, _autoSeq: 0,   /* _autoSeq：自动切题的批次号，暂停/手动切题时作废旧回调 */
+  ses:null, picked:null,
+
+  /* ---------- 首页：Hero + 关卡地图 ---------- */
+  goHome(){
+    Speech.stop(); this.stopTimer(); clearTimeout(this._auto); this._autoSeq++; this.ses = null;
+    const tot = Object.values(S.stars).reduce((a,b)=>a+b,0);
+    const part = (key, no, title, en, tip) => \`
+      <div class="part">
+        <div class="part-head">
+          <span class="pill" style="background:\${key==="cmp"?"var(--teal)":"var(--sky)"}">PART \${no}</span>
+          <h3>\${title} <span class="en">\${en}</span></h3>
+          <span class="tip">\${tip}</span>
+        </div>
+        <div class="stations">\${LEVELS.filter(l=>l.part===key).map(l=>this.stationHTML(l)).join("")}</div>
+      </div>\`;
+    $("#app").innerHTML = \`
+      <div class="screen">
+        <div class="hero">
+          <div>
+            <h2>比较级和最高级<br>不用背，<em>拖一拖就会了</em></h2>
+            <p>先把比较级练到底，再整篇转到最高级。两篇走同一条路——
+               <b>变形 → 句型 → 纠错</b>，第二篇上手不用重新学玩法。</p>
+            <div class="cta">
+              <button class="btn" onclick="Game.start(\${S.unlocked})">▶ 继续第 \${S.unlocked} 关</button>
+              <button class="btn ghost" onclick="Game.showRules()">📘 五大规则速查</button>
+              <button class="btn ghost" onclick="Game.reset()">↺ 重置进度</button>
+            </div>
+          </div>
+          <div class="morph-stage"><div class="morph-row" id="morphDemo"></div></div>
+        </div>
+        <div class="map">
+          <div class="map-title"><h3>关卡地图</h3>
+            <span>已获得 \${tot} / \${MAX_STARS} 颗星 · 每关正确率达 60% 解锁下一关</span></div>
+          \${part("cmp", 1, "比较级篇", "Comparatives", "…er + than…")}
+          \${part("sup", 2, "最高级篇", "Superlatives", "the + …est")}
+        </div>
+      </div>\`;
+    this.morphLoop();
+  },
+  stationHTML(l){
+    const locked = l.id > S.unlocked, st = S.stars[l.id];
+    return \`<div class="station \${locked?"locked":""}" onclick="\${locked?"":"Game.start("+l.id+")"}">
+      \${locked?'<div class="lockbadge">🔒</div>':""}
+      <div class="no" style="background:\${l.color}">\${l.icon}</div>
+      <div class="step">STEP \${((l.id-1)%3)+1} · \${["变形","句型","纠错"][(l.id-1)%3]} · ⏱\${l.time||QUESTION_TIME}s</div>
+      <h4>\${l.name}</h4>
+      <p>\${l.zh}<br>\${l.desc}</p>
+      <div class="stars">\${[1,2,3].map(i=>\`<i class="\${st>=i?"on":""}">⭐</i>\`).join("")}</div>
+    </div>\`;
+  },
+  /* 首页循环演示：单词变形（页面签名动画） */
+  morphLoop(){
+    const box = document.getElementById("morphDemo"); if(!box) return;
+    const pool = ADJS.filter(a => a.zh);
+    let k = 0;
+    const draw = () => {
+      const el = document.getElementById("morphDemo"); if(!el) return;
+      const a = pool[(k++) % pool.length], m = RULE_META[a.r];
+      const mark = (full, base) => full.startsWith(base)
+        ? base + \`<span class="suf">\${full.slice(base.length)}</span>\`
+        : \`<span class="suf">\${full}</span>\`;
+      el.innerHTML = \`
+        <div class="morph-word dim">\${a.w} <span class="tag" style="background:\${m.color}22;color:\${m.color}">\${m.name}</span></div>
+        <div class="morph-word">\${mark(a.c, a.w.replace(/[ye]$/,""))} <span class="tag">COMPARATIVE 比较级</span></div>
+        <div class="morph-word">\${mark(a.s, a.w.replace(/[ye]$/,""))} <span class="tag">SUPERLATIVE 最高级</span></div>
+        <div style="margin-top:14px;color:var(--ink-soft);font-size:14px">\${a.zh} · \${m.tip}</div>\`;
+    };
+    draw(); clearInterval(this._mt); this._mt = setInterval(draw, 2600);
+  },
+  showRules(){
+    modal(\`<h3>五大变化规则</h3><p class="lead">课堂讲解可直接投屏这一页</p>
+      <div style="text-align:left">\${[1,2,3,4,5].map(r=>{
+        const m = RULE_META[r], eg = ADJS.filter(a=>a.r===r&&a.zh).slice(0,3);
+        return \`<div class="panel" style="margin-bottom:12px;background:\${m.color}14">
+          <h4 style="color:\${m.color}">\${m.name}</h4>
+          <div style="font-size:14px;color:var(--ink-soft);margin-bottom:10px">\${m.tip}</div>
+          \${eg.map(a=>\`<div style="font-family:var(--font-display);font-size:19px;font-weight:700">
+            \${a.w} <span class="arrow">→</span> \${a.c} <span class="arrow">→</span> \${a.s}</div>\`).join("")}
+        </div>\`;}).join("")}</div>
+      <button class="btn" style="margin-top:10px" onclick="closeModal()">知道了</button>\`, true);
+  },
+  reset(){
+    modal(\`<h3>重置全部进度？</h3><p class="lead">金币、星星、关卡解锁和老师看板数据都会清空。</p>
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn" style="margin-left:10px" onclick="Game.doReset()">确认重置</button>\`);
+  },
+  doReset(){
+    localStorage.removeItem(activeSaveKey);
+    const zero6 = () => ({1:0,2:0,3:0,4:0,5:0,6:0});
+    Object.assign(S,{coins:0,xp:0,plv:1,unlocked:1,stars:zero6(),best:zero6(),done:zero6(),time:zero6(),
+      rule:{1:{a:0,t:0},2:{a:0,t:0},3:{a:0,t:0},4:{a:0,t:0},5:{a:0,t:0}},
+      side:{cmp:{a:0,t:0},sup:{a:0,t:0}},err:{},qTotal:0,qRight:0});
+    syncHUD(); closeModal(); this.goHome();
+  },
+
+  /* ---------- 开始一关 ---------- */
+  start(id){
+    clearInterval(this._mt);
+    if (isEmbeddedGame() && !bridgeState.studentId){
+      setBridgeStatus("请先选择学生，再点击关卡开始。", false);
+      return;
+    }
+    if (id > S.unlocked) return;
+    const l = LV(id);
+    this.ses = { id, i:0, n:l.n, right:0, combo:0, maxCombo:0, coins:0, t0:Date.now(),
+                 locked:false, cfg:l.cfg || {}, wrong:[] };
+    this.mod = l.mod();
+    this.mod.build(this.ses);
+    this.shell();
+    this.next();
+  },
+  shell(){
+    const l = LV(this.ses.id);
+    $("#app").innerHTML = \`
+      <div class="screen play">
+        <div class="topbar">
+          <button class="btn ghost sm" onclick="Game.goHome()">← 关卡地图</button>
+          <div><div class="title">\${l.icon} \${l.name}</div><div class="sub">\${l.zh}</div></div>
+          <div class="progress"><i id="pgFill" style="width:0%"></i></div>
+          <div class="chip" id="qCount">0 / \${this.ses.n}</div>
+          <div class="chip" id="comboChip">🔥 <span id="comboVal">0</span></div>
+          <div class="chip timer" id="timerChip">⏱ <span id="timeVal">\${timeOf(this.ses.id)}</span>s</div>
+        </div>
+        <div class="stage" id="stage"></div>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" id="actions"></div>
+      </div>\`;
+  },
+  next(){
+    const s = this.ses;
+    if (s.i >= s.n) return this.finish();
+    s.locked = false; this.picked = null;
+    document.getElementById("actions").innerHTML = "";
+    this.mod.render(s.items[s.i]);
+    document.getElementById("pgFill").style.width = (s.i / s.n * 100) + "%";
+    set("qCount", (s.i+1) + " / " + s.n);
+    this.startTimer();
+  },
+  /* 统一判题：ok=是否正确，fb=反馈 HTML，rule=规则编号，errType=错误分类 */
+  judge(ok, fb, meta, ev){
+    const s = this.ses;
+    if (s.locked) return; s.locked = true;
+    this.stopTimer();
+    meta = meta || {};
+    S.qTotal++;
+    const part = LV(s.id).part;
+    if (S.side[part]) { S.side[part].t++; if (ok) S.side[part].a++; }
+    if (meta.rule) { S.rule[meta.rule].t++; if (ok) S.rule[meta.rule].a++; }
+    if (!ok && meta.errType) S.err[meta.errType] = (S.err[meta.errType]||0) + 1;
+    if (!ok) s.wrong.push("第" + (s.i + 1) + "题（" + (meta.errType || (meta.rule ? "变化规则" + meta.rule : "需要复习")) + "）");
+    if (ok){
+      S.qRight++; s.right++; s.combo++; s.maxCombo = Math.max(s.maxCombo, s.combo);
+      const gain = 10 + Math.min(s.combo, 5) * 2;
+      s.coins += gain; addCoins(gain, ev); addXP(8 + Math.min(s.combo,5));
+      Sound.play("right"); if (s.combo >= 2) comboText(s.combo);
+    } else {
+      s.combo = 0; Sound.play("wrong");
+    }
+    set("comboVal", s.combo);
+    const box = document.getElementById("feedback");
+    if (box){ box.className = "feedback show " + (ok ? "good" : "bad"); box.innerHTML = fb; }
+    /* 答对自动进下一题；答错停下来，让学生看完解析自己点 */
+    if (ok) this.autoNext(NEXT_DELAY.right); else this.waitNext();
+  },
+  /* 切题前先掐掉上一题残留的朗读——万一看门狗误判「读完了」，
+     也不会出现"已经下一题了还在念上一题"的错位 */
+  advance(){ clearTimeout(this._auto); this._autoSeq++; Speech.stop(); this.stopTimer(); this.ses.i++; this.next(); },
+
+  /* ---------- 倒计时 ---------- */
+  startTimer(){
+    this.stopTimer(); this.left = timeOf(this.ses.id); this.paintTimer();
+    this._tk = setInterval(() => {
+      this.left--; this.paintTimer();
+      if (this.left <= 0){ this.stopTimer(); this.timeUp(); }
+    }, 1000);
+  },
+  stopTimer(){ clearInterval(this._tk); this._tk = null; },
+  paintTimer(){
+    set("timeVal", Math.max(this.left, 0));
+    const c = document.getElementById("timerChip");
+    if (c) c.classList.toggle("warn", this.left <= 5);
+  },
+  /* 超时 = 答错，但把正确答案完整讲一遍 */
+  timeUp(){
+    if (!this.ses || this.ses.locked) return;
+    if (this.mod.timeUp) this.mod.timeUp();
+  },
+
+  /* ---------- 反馈后自动进入下一题 ---------- */
+  autoNext(ms){
+    const last = this.ses.i + 1 >= this.ses.n;
+    document.getElementById("actions").innerHTML = \`
+      <div class="autowrap">
+        <div class="autobar"><i id="autoFill"></i></div>
+        <span class="waithint" id="speakHint">🔊 朗读中…</span>
+        <button class="btn ghost sm" onclick="Game.pauseAuto()">⏸ 暂停讲解</button>
+      </div>\`;
+    clearTimeout(this._auto);
+    /* 每次排队都拿一个新号；一旦学生按了暂停 / Enter，旧号作废，回调直接丢弃 */
+    const seq = ++this._autoSeq;
+    /* 先把答案读完，再开始进度条和 1 秒延时 —— 不能一边读一边切题 */
+    Speech.after(() => {
+      if (seq !== this._autoSeq) return;
+      const h = document.getElementById("speakHint"); if (h) h.remove();
+      const f = document.getElementById("autoFill");
+      if (f){ f.style.transitionDuration = ms + "ms"; requestAnimationFrame(() => f.style.width = "100%"); }
+      this._auto = setTimeout(() => this.advance(), ms);
+    });
+  },
+  /* 老师需要现场讲解时按暂停，讲完再手动继续 */
+  pauseAuto(){ clearTimeout(this._auto); this.waitNext(); },
+  /* 答错 / 超时：不自动切题，等学生看完解析后自己点 */
+  waitNext(){
+    clearTimeout(this._auto); this._autoSeq++;
+    const last = this.ses.i + 1 >= this.ses.n;
+    document.getElementById("actions").innerHTML = \`
+      <div class="autowrap">
+        <span class="waithint">看懂了再继续 · 按 Enter 也可以</span>
+        <button class="btn sky" onclick="Game.advance()">\${last ? "查看成绩 →" : "下一题 →"}</button>
+      </div>\`;
+  },
+
+  /* ---------- 结算 ---------- */
+  finish(){
+    this.stopTimer(); clearTimeout(this._auto); this._autoSeq++; Speech.stop();
+    const s = this.ses, acc = Math.round(s.right / s.n * 100);
+    const stars = acc >= 90 ? 3 : acc >= 70 ? 2 : acc >= 50 ? 1 : 0;
+    const secs = Math.round((Date.now() - s.t0)/1000);
+    S.stars[s.id] = Math.max(S.stars[s.id], stars);
+    S.best[s.id]  = Math.max(S.best[s.id], acc);
+    S.done[s.id] += 1; S.time[s.id] += secs;
+    let unlockedNew = false;
+    if (acc >= 60 && s.id === S.unlocked && S.unlocked < 6){ S.unlocked++; unlockedNew = true; }
+    if (isEmbeddedGame() && bridgeState.studentId){
+      if (s.coins > 0) sendBridge({type:"comparatives:addScore", studentId:bridgeState.studentId, score:s.coins, level:"Level " + s.id});
+      if (s.wrong.length) sendBridge({type:"comparatives:addWrongItems", studentId:bridgeState.studentId, level:"Level " + s.id, items:s.wrong});
+    }
+    syncHUD(); Sound.play("level"); if (stars >= 2) confetti();
+    modal(\`
+      <h3>\${["再来一次会更好！","不错，继续加油！","很棒！","完美通关！"][stars]}</h3>
+      <p class="lead">\${LV(s.id).name} · \${LV(s.id).zh}</p>
+      <div class="bigstars">\${[1,2,3].map(i=>\`<i class="\${stars>=i?'on':''}">⭐</i>\`).join("")}</div>
+      <div class="statgrid">
+        <div class="statbox"><b>\${acc}%</b><span>ACCURACY 正确率</span></div>
+        <div class="statbox"><b>\${s.right}/\${s.n}</b><span>CORRECT 答对</span></div>
+        <div class="statbox"><b>\${s.maxCombo}</b><span>BEST COMBO 连击</span></div>
+        <div class="statbox"><b>\${s.coins}</b><span>COINS 金币</span></div>
+        <div class="statbox"><b>\${secs}s</b><span>TIME 用时</span></div>
+      </div>
+      \${unlockedNew ? \`<p style="color:var(--teal-deep);font-weight:800">🔓 已解锁 Level \${S.unlocked} · \${LV(S.unlocked).name}！</p>\` : ""}
+      \${acc < 60 && s.id === S.unlocked && S.unlocked < 6 ? \`<p style="color:var(--coral-deep);font-weight:700">正确率达到 60% 就能解锁下一关，再试一次吧。</p>\` : ""}
+      <div style="margin-top:8px">
+        <button class="btn ghost" onclick="closeModal();Game.goHome()">关卡地图</button>
+        <button class="btn ghost" style="margin:0 8px" onclick="closeModal();Game.start(\${s.id})">再练一次</button>
+        \${S.unlocked > s.id ? \`<button class="btn" onclick="closeModal();Game.start(\${s.id+1})">进入下一关 →</button>\` : ""}
+      </div>\`);
+  },
+
+  /* ---------- 拖拽 + 点选（平板/投屏双支持） ---------- */
+  bindWords(root){
+    const fill = (slot, val, el) => {
+      if (slot.classList.contains("filled")) this.clearSlot(root, slot);
+      slot.textContent = val; slot.dataset.val = val; slot.classList.add("filled");
+      if (el) el.classList.add("used"), slot.dataset.from = el.dataset.idx;
+      Sound.play("click"); this.picked = null;
+      root.querySelectorAll(".word.picked").forEach(x => x.classList.remove("picked"));
+      if (this.mod.onFill) this.mod.onFill(root);
+    };
+    root.querySelectorAll(".word").forEach((w, i) => {
+      w.dataset.idx = i; w.draggable = true;
+      w.addEventListener("dragstart", e => { this.picked = w; e.dataTransfer.setData("text", w.dataset.val); });
+      w.addEventListener("click", () => {
+        const empty = root.querySelector(".slot:not(.filled)");
+        if (empty) return fill(empty, w.dataset.val, w);
+        this.picked = w;
+        root.querySelectorAll(".word.picked").forEach(x => x.classList.remove("picked"));
+        w.classList.add("picked"); Sound.play("click");
+      });
+    });
+    root.querySelectorAll(".slot").forEach(sl => {
+      sl.addEventListener("dragover", e => { e.preventDefault(); sl.classList.add("over"); });
+      sl.addEventListener("dragleave", () => sl.classList.remove("over"));
+      sl.addEventListener("drop", e => { e.preventDefault(); sl.classList.remove("over");
+        if (this.picked) fill(sl, this.picked.dataset.val, this.picked); });
+      sl.addEventListener("click", () => {
+        if (this.picked) return fill(sl, this.picked.dataset.val, this.picked);
+        if (sl.classList.contains("filled")) this.clearSlot(root, sl);
+      });
+    });
+  },
+  clearSlot(root, slot){
+    const from = slot.dataset.from;
+    if (from !== undefined){ const w = root.querySelector(\`.word[data-idx="\${from}"]\`); if (w) w.classList.remove("used"); }
+    slot.textContent = slot.dataset.ph || "?"; slot.classList.remove("filled"); delete slot.dataset.val; delete slot.dataset.from;
+    Sound.play("click");
+  },
+  allFilled(root){ return [...root.querySelectorAll(".slot")].every(s => s.classList.contains("filled")); }
+};
+
+/* ==========================================================================
+   PART D · Level 1 变形工厂 & Level 2 比较竞技场
+   ========================================================================== */
+
+/* 名词冠词/单复数处理，保证生成的句子语法正确 */
+const NO_ART = new Set(["gold","silver","water","juice","milk","coffee","tea","snow","rain","wind",
+  "homework","maths","art","English","history","music","sport","football","chess","swimming","running",
+  "tennis","golf","basketball","baseball","skiing","walking","yoga","boxing","dancing","drawing",
+  "summer","winter","morning","night","games","shoes","socks","chips","candy","fruit","paper",
+  "London","Paris","Beijing","Shanghai","Egypt","Japan","China"]);
+const PLURAL = new Set(["shoes","socks","games","noodles","chips"]);
+const subj = n => (NO_ART.has(n) ? n : "the " + n);
+const Subj = n => cap(subj(n));
+const vb   = n => PLURAL.has(n) ? "are" : "is";
+
+/* 按“比较级 / 最高级”生成分步演示：big → bigg → bigger */
+function stepsFor(a, mode){
+  const w = a.w, tgt = mode === "c" ? a.c : a.s;
+  switch(a.r){
+    case 2: return [w, w + w.slice(-1), tgt];
+    case 3: return [w, w.slice(0,-1) + "i", tgt];
+    case 4: return [w, (mode === "c" ? "more" : "most") + " + " + w, tgt];
+    case 5: return [w, "不规则，需要记忆", tgt];
+    default: return w.endsWith("e") ? [w, w + "(e)", tgt] : [w, tgt];
+  }
+}
+
+/* --------------------------- Level 1 · Word Builder --------------------- */
+const L1 = {
+  build(s){
+    const pool = ADJS.filter(a => a.zh);
+    const mode = s.cfg.mode || "c";        /* c = 比较级篇，s = 最高级篇 */
+    /* 五种规则均衡抽题，保证每种规则都练到 */
+    const byRule = [1,2,3,4,5].map(r => shuffle(pool.filter(a => a.r === r)));
+    const items = []; let k = 0;
+    while (items.length < s.n){
+      const g = byRule[k % 5]; k++;
+      if (g.length) items.push({ adj: g.pop(), mode });
+    }
+    s.items = shuffle(items);
+  },
+  /* 生成干扰项：用“学生最容易犯的错”当选项，错得有价值 */
+  distractors(a, mode){
+    const w = a.w, out = new Set();
+    const add = x => { if (x && x !== (mode==="c"?a.c:a.s)) out.add(x); };
+    add(mode === "c" ? a.s : a.c);                                  // 比较级/最高级混淆
+    if (a.r === 4){ add(w + "er"); add(w + "est"); add("most " + w); add("more " + w); }
+    else if (a.r === 5){ add(w + "er"); add(w + "est"); add("more " + w); }
+    else if (a.r === 2){ add(w + (mode==="c"?"er":"est")); add("more " + w); add(w + w.slice(-1) + (mode==="c"?"est":"er")); }
+    else if (a.r === 3){ add(w + (mode==="c"?"er":"est")); add("more " + w); add(w.slice(0,-1)+"i"+(mode==="c"?"est":"er")); }
+    else { add("more " + w); add("most " + w); add(w.replace(/e$/,"") + "ier"); }
+    return pickN([...out], 3);
+  },
+  render(it){
+    const a = it.adj, m = RULE_META[a.r];
+    const ans = it.mode === "c" ? a.c : a.s;
+    const opts = shuffle([ans, ...this.distractors(a, it.mode)]);
+    this.ans = ans; this.item = it;
+    document.getElementById("stage").innerHTML = \`
+      <div class="q-label">\${it.mode === "c" ? "PART 1 · Comparative 比较级" : "PART 2 · Superlative 最高级"}</div>
+      <div style="text-align:center">
+        <div style="font-family:var(--font-display);font-size:clamp(40px,5vw,68px);font-weight:800;letter-spacing:-1.5px">
+          \${a.w}<button class="btn ghost sm" style="margin-left:14px;vertical-align:middle"
+            onclick="Speech.say('\${a.w}')">🔊</button></div>
+        <div style="color:var(--ink-soft);font-size:17px;margin-top:2px">\${a.zh}</div>
+        <div class="sentence" style="margin-top:26px">
+          \${a.w} <span class="arrow">→</span>
+          <span class="slot" data-ph="?">?</span>
+          <span style="font-size:16px;color:var(--ink-soft);font-weight:600">
+            （\${it.mode === "c" ? "更…… / -er" : "最…… / the -est"}）</span>
+        </div>
+        <div class="tray">\${opts.map(o => \`<div class="word" data-val="\${o}">\${o}</div>\`).join("")}</div>
+        <div class="feedback" id="feedback"></div>
+      </div>\`;
+    Game.bindWords(document.getElementById("stage"));
+    Speech.say(a.w);
+  },
+  /* 超时：把正确答案填进空里，再走一次答错的讲解流程 */
+  timeUp(){
+    const root = document.getElementById("stage"), slot = root.querySelector(".slot");
+    slot.textContent = this.ans; slot.dataset.val = "⏱"; slot.classList.add("filled");
+    this.onFill(root, true);
+  },
+  onFill(root, timeout){
+    const slot = root.querySelector(".slot");
+    const a = this.item.adj, ok = !timeout && slot.dataset.val === this.ans;
+    slot.classList.add(ok ? "ok" : "no");
+    root.querySelectorAll(".word").forEach(w => {
+      if (w.dataset.val === this.ans) w.classList.add("right");
+      else if (!timeout && w.dataset.val === slot.dataset.val) w.classList.add("wrong");
+    });
+    const m = RULE_META[a.r];
+    const stepHTML = \`<div class="steps">\${stepsFor(a, this.item.mode).map((x,i,arr) =>
+      \`<span>\${i === arr.length-1 ? "<u>"+x+"</u>" : x}</span>\` ).join('<span class="arrow">→</span>')}</div>\`;
+    const fb = ok
+      ? \`<b>✅ \${a.w} → \${this.ans}</b> · \${m.name}<br><span style="font-size:14px">\${m.tip}</span>\`
+      : \`<b>\${timeout ? "⏱ 时间到！正确答案是 " + this.ans : "❌ 正确答案是 " + this.ans + "　（你选了 " + slot.dataset.val + "）"}</b>
+         \${stepHTML}<b>\${m.name}</b>：\${m.tip}
+         <div style="margin-top:8px;font-size:14px">完整三态：<b>\${a.w} → \${a.c} → \${a.s}</b></div>\`;
+    if (ok) Speech.say(this.ans);
+    Game.judge(ok, fb, { rule: a.r });
+  }
+};
+
+/* --------------------------- Level 2 · Compare Arena -------------------- */
+const L2 = {
+  build(s){ s.items = pickN(CMP_BANK, s.n).map(([a,b,adj,anim]) => ({a,b,adj,anim})); },
+  render(it){
+    const f = formsOf(it.adj);
+    this.ans = [f.c, "than"]; this.item = it;
+    /* 干扰项：more+原级、最高级、then / that / as —— 都是 KET 常见错误 */
+    const bad = [f.r === 4 ? it.adj + "er" : "more " + it.adj, f.s, "then", "that", "as"];
+    const opts = shuffle([f.c, "than", ...pickN(bad, 3)]);
+    document.getElementById("stage").innerHTML = \`
+      <div class="q-label">PART 1 · Comparative + than 比较级句型</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center;max-width:680px;margin:0 auto 8px">
+        \${sticker(it.a,"","id=stA")}
+        <div style="font-family:var(--font-display);font-size:26px;color:var(--ink-soft)">VS</div>
+        \${sticker(it.b,"","id=stB")}
+      </div>
+      <div class="sentence">
+        \${Subj(it.a)} \${vb(it.a)}
+        <span class="slot" data-ph="____">____</span>
+        <span class="slot" data-ph="____" style="min-width:100px">____</span>
+        \${subj(it.b)}.
+      </div>
+      <div class="tray">\${opts.map(o => \`<div class="word" data-val="\${o}">\${o}</div>\`).join("")}</div>
+      <div class="feedback" id="feedback"></div>\`;
+    Game.bindWords(document.getElementById("stage"));
+  },
+  /* 超时：自动补全正确句子并公布 */
+  timeUp(){
+    const root = document.getElementById("stage");
+    root.querySelectorAll(".slot").forEach((sl,i) => {
+      sl.textContent = this.ans[i]; sl.dataset.val = this.ans[i]; sl.classList.add("filled");
+    });
+    this.onFill(root, true);
+  },
+  onFill(root, timeout){
+    if (!timeout && !Game.allFilled(root)) return;
+    const slots = [...root.querySelectorAll(".slot")];
+    const got = slots.map(s => s.dataset.val);
+    const ok = !timeout && got[0] === this.ans[0] && got[1] === this.ans[1];
+    slots.forEach((s,i) => s.classList.add(!timeout && got[i] === this.ans[i] ? "ok" : "no"));
+    const it = this.item, f = formsOf(it.adj);
+    const sent = \`\${Subj(it.a)} \${vb(it.a)} \${f.c} than \${subj(it.b)}.\`;
+    if (ok){
+      const card = document.getElementById("stA");
+      card.classList.add("anim-" + it.anim, "win");
+      Speech.say(sent);
+    }
+    const fb = ok
+      ? \`<b>✅ \${sent}</b><div style="margin-top:6px;font-size:14px">
+         比较两样东西：<b>\${f.c}</b>（比较级）+ <b>than</b>（比……）。</div>\`
+      : \`<b>\${timeout ? "⏱ 时间到！" : "❌ "}正确句子：\${sent}</b>
+         <div class="steps"><span>\${it.adj}</span><span class="arrow">→</span><span><u>\${f.c}</u></span>
+           <span class="arrow">+</span><span><u>than</u></span></div>
+         <div style="font-size:14px">\${RULE_META[f.r].tip} 两者比较，than 绝对不能漏，也不能写成 then / that。</div>\`;
+    Game.judge(ok, fb, { rule: f.r, errType: ok ? null : (got[1] !== "than" ? "than" : "cmp") });
+  }
+};
+
+/* ==========================================================================
+   PART E · Level 3 最高级擂台 & Level 4 语法医生
+   ========================================================================== */
+const CAT = {animal:"animal",food:"food",fruit:"fruit",drink:"drink",transport:"vehicle",
+  place:"place",building:"building",nature:"thing",weather:"weather",sport:"sport",
+  school:"subject",thing:"thing",person:"person"};
+/* 类别名词：题目里可用 n 字段覆盖，n:"" 表示句子里不带类别名词 */
+const catNoun = it => it.n !== undefined ? it.n : (CAT[it.t] || "one");
+
+const L3 = {
+  build(s){ s.items = pickN(SUP_BANK, s.n); },
+  render(it){
+    const f = formsOf(it.adj), noun = catNoun(it);
+    this.item = it; this.forms = f;
+    const order = shuffle(it.opts.map((o,i) => ({o, win:i === it.ans})));
+    this.order = order;
+    document.getElementById("stage").innerHTML = \`
+      <div class="q-label">PART 2 · the + Superlative 最高级</div>
+      <div class="sentence" style="margin-bottom:22px">
+        Which \${noun||"one"} is <b style="color:var(--teal)">the \${f.s}</b>?
+        <button class="btn ghost sm" style="vertical-align:middle"
+          onclick="Speech.say('Which \${noun||'one'} is the \${f.s}?')">🔊</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:940px;margin:0 auto">
+        \${order.map((x,i) => sticker(x.o, "", \`onclick="L3.choose(\${i},event)"\`)).join("")}
+      </div>
+      <div class="feedback" id="feedback"></div>\`;
+  },
+  /* 超时：直接亮出冠军 */
+  timeUp(){ this.choose(-1, null, true); },
+  choose(i, ev, timeout){
+    if (Game.ses.locked) return;
+    const cards = [...document.querySelectorAll(".sticker")];
+    const ok = !timeout && this.order[i] && this.order[i].win;
+    const winIdx = this.order.findIndex(x => x.win);
+    cards.forEach((c, k) => c.classList.add(k === winIdx ? "win" : (k === i && !ok ? "miss" : "lose")));
+    const it = this.item, f = this.forms, name = it.opts[it.ans], noun = catNoun(it);
+    const sent = \`\${Subj(name)} \${vb(name)} the \${f.s}\${noun ? " " + noun : ""}.\`;
+    if (ok){ Speech.say(sent); }
+    const fb = ok
+      ? \`<div style="font-size:34px">🏆🥇</div><b>✅ \${sent}</b>
+         <div style="margin-top:6px;font-size:14px">最高级前面永远带 <b>the</b>：the \${f.s}。</div>\`
+      : \`<b>\${timeout ? "⏱ 时间到！" : "❌ "}冠军是 \${name}</b>：\${sent}
+         <div class="steps"><span>\${it.adj}</span><span class="arrow">→</span><span>\${f.c}</span>
+           <span class="arrow">→</span><span><u>the \${f.s}</u></span></div>
+         <div style="font-size:14px">\${RULE_META[f.r].tip} 三个或以上作比较，用 the + 最高级。</div>\`;
+    Game.judge(ok, fb, { rule: f.r, errType: ok ? null : "sup" }, ev);
+  }
+};
+
+/* --------------------------- Level 4 · Grammar Doctor ------------------- */
+const MONSTER = \`<svg viewBox="0 0 160 160" class="monster" id="mst">
+  <ellipse cx="80" cy="140" rx="46" ry="8" fill="#12333B" opacity=".12"/>
+  <path d="M80 24c30 0 50 22 50 52s-20 56-50 56-50-26-50-56 20-52 50-52z" fill="#7FD8CF"/>
+  <path d="M42 46c-6-14 2-24 12-22 8 2 10 12 8 20z" fill="#7FD8CF"/>
+  <path d="M118 46c6-14-2-24-12-22-8 2-10 12-8 20z" fill="#7FD8CF"/>
+  <circle cx="62" cy="74" r="12" fill="#fff"/><circle cx="98" cy="74" r="12" fill="#fff"/>
+  <circle cx="64" cy="77" r="6" fill="#12333B" id="eyeL"/><circle cx="100" cy="77" r="6" fill="#12333B" id="eyeR"/>
+  <path d="M62 104q18 16 36 0" stroke="#12333B" stroke-width="5" fill="none" stroke-linecap="round" id="mouth"/>
+  <circle cx="46" cy="96" r="7" fill="#FFB0A2" opacity=".8"/><circle cx="114" cy="96" r="7" fill="#FFB0A2" opacity=".8"/>
+</svg>\`;
+const L4 = {
+  build(s){
+    /* 按篇章取病句：比较级篇只出 than / more+-er 类，最高级篇只出 the / most+-est 类 */
+    const pool = DOC_BANK.filter(g => !s.cfg.side || g.side === s.cfg.side);
+    s.items = pickN(pool, s.n); s.hp = 0;
+  },
+  render(it){
+    this.item = it; this.phase = "find";
+    const hp = Math.round(Game.ses.right / Game.ses.n * 100);
+    document.getElementById("stage").innerHTML = \`
+      <div class="q-label">\${Game.ses.cfg.side === "sup" ? "PART 2" : "PART 1"} · Find the mistake 找出病句里的错误</div>
+      <div class="monster-wrap">
+        <div style="width:150px">\${MONSTER}</div>
+        <div>
+          <div style="font-weight:800;margin-bottom:6px">怪兽健康值 <span id="hpTxt">\${hp}%</span></div>
+          <div class="hpbar"><i id="hpFill" style="width:\${hp}%"></i></div>
+          <div style="font-size:13px;color:var(--ink-soft);margin-top:8px">修好一句，它就恢复一点 💊</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:15px;color:var(--ink-soft);margin-bottom:4px">
+        点一下你觉得<b>写错</b>的地方（虚线框表示这里少了一个词）
+        <button class="btn ghost sm" style="vertical-align:middle;margin-left:8px"
+          onclick="Speech.say('\${it.t.filter(x=>x!=='␣').join(' ')}')">🔊</button>
+      </div>
+      <div class="tokens" id="toks">
+        \${it.t.map((w,i) => \`<div class="tok \${w === "␣" ? "gap" : ""}" data-i="\${i}"
+            onclick="L4.hit(\${i},event)">\${w === "␣" ? "␣" : w}</div>\`).join("")}
+      </div>
+      <div id="fixTray"></div>
+      <div class="feedback" id="feedback"></div>\`;
+    document.getElementById("mst").classList.add("sick");
+  },
+  hit(i, ev){
+    if (Game.ses.locked || this.phase !== "find") return;
+    const it = this.item, el = document.querySelector(\`.tok[data-i="\${i}"]\`);
+    if (i !== it.e){                                   /* 点错位置 → 直接判错并讲解 */
+      el.classList.add("miss");
+      document.querySelector(\`.tok[data-i="\${it.e}"]\`).classList.add("hit");
+      return this.reveal(false);
+    }
+    Sound.play("click"); el.classList.add("hit"); this.phase = "fix";
+    const opts = shuffle(it.o);
+    document.getElementById("fixTray").innerHTML =
+      \`<div style="text-align:center;font-size:15px;color:var(--ink-soft);margin-top:14px">找到了！现在选出正确的写法 👇</div>
+       <div class="tray">\${opts.map(o => \`<div class="word" onclick="L4.fix('\${o.replace(/'/g,"\\\\'")}',event)">\${o === "" ? "（删掉它）" : o}</div>\`).join("")}</div>\`;
+  },
+  fix(val, ev){
+    if (this.phase !== "fix") return;
+    const it = this.item, ok = val === it.f;
+    this.phase = "done";
+    const el = document.querySelector(\`.tok[data-i="\${it.e}"]\`);
+    el.classList.remove("hit"); el.classList.add(ok ? "fixed" : "miss");
+    el.textContent = it.f === "" ? "✂" : it.f;
+    this.reveal(ok, ev);
+  },
+  timeUp(){
+    const it = this.item;
+    const el = document.querySelector(\`.tok[data-i="\${it.e}"]\`);
+    if (el){ el.classList.add("miss"); el.textContent = it.f === "" ? "✂" : it.f; }
+    this.phase = "done";
+    this.reveal(false, null, true);
+  },
+  reveal(ok, ev, timeout){
+    const it = this.item;
+    const fixed = it.t.map((w,i) => i === it.e ? it.f : w).filter(w => w && w !== "␣").join(" ");
+    const wrongText = it.t.map(w => w === "␣" ? "___" : w).join(" ");
+    if (ok){
+      const m = document.getElementById("mst");
+      m.classList.remove("sick"); m.classList.add("healed");
+      const hp = Math.round((Game.ses.right + 1) / Game.ses.n * 100);
+      document.getElementById("hpFill").style.width = hp + "%";
+      set("hpTxt", hp + "%");
+      Speech.say(fixed);
+    }
+    const fb = (ok ? \`<div style="font-size:30px">💊✨</div><b>✅ 怪兽恢复健康了！</b>\`
+                   : \`<b>\${timeout ? "⏱ 时间到！正确写法是这样" : "❌ 没治好，再看看这句话"}</b>\`)
+      + \`<div style="margin:10px 0"><span style="text-decoration:line-through;opacity:.6">\${wrongText}</span>
+         <span class="arrow"> → </span><b style="color:var(--teal-deep)">\${fixed}</b></div>
+         <div style="font-size:14px">\${it.tip}</div>\`;
+    Game.judge(ok, fb, { errType: ok ? null : it.ty }, ev);
+  }
+};
+
+/* ==========================================================================
+   PART G · 老师看板（诊断 + 学习报告）
+   ========================================================================== */
+const ERR_LABEL = {
+  dbl:"more 与 -er 重复", most:"most 与 -est 重复", than:"漏写 / 用错 than",
+  the:"最高级漏 the", irr:"不规则变化写错", cmp:"比较级形式错", sup:"最高级形式错",
+  spell:"拼写（双写 / y→i）", obj:"比较对象不一致", prep:"介词 in / of 用错",
+  art:"冠词用错", adv:"该用副词"
+};
+const Dash = {
+  open(){
+    const totQ = S.qTotal, acc = totQ ? Math.round(S.qRight/totQ*100) : 0;
+    const ruleRows = [1,2,3,4,5].map(r => {
+      const d = S.rule[r], p = d.t ? Math.round(d.a/d.t*100) : 0;
+      return \`<div class="bar-row \${d.t && p < 60 ? "warn":""}">
+        <span class="lb">\${RULE_META[r].name}</span>
+        <span class="bar"><i style="width:\${d.t?p:0}%"></i></span>
+        <span class="vl">\${d.t ? p+"%" : "—"}</span></div>\`;
+    }).join("");
+    const errs = Object.entries(S.err).sort((a,b) => b[1]-a[1]).slice(0,8);
+    const maxErr = errs.length ? errs[0][1] : 1;
+    const errRows = errs.length ? errs.map(([k,v]) =>
+      \`<div class="bar-row warn"><span class="lb">\${ERR_LABEL[k]||k}</span>
+        <span class="bar"><i style="width:\${v/maxErr*100}%"></i></span>
+        <span class="vl">\${v} 次</span></div>\`).join("")
+      : \`<div class="empty">还没有错误记录。让学生先玩 Level 2 / Level 4，这里会自动汇总最常犯的错误类型。</div>\`;
+    const sideRow = (k, label) => {
+      const d = S.side[k], p = d.t ? Math.round(d.a/d.t*100) : 0;
+      return \`<div class="bar-row \${d.t && p < 60 ? "warn":""}">
+        <span class="lb">\${label}</span>
+        <span class="bar"><i style="width:\${d.t?p:0}%"></i></span>
+        <span class="vl">\${d.t ? p+"%" : "—"}</span></div>
+        <div style="font-size:12px;color:var(--ink-soft);margin:-6px 0 10px 142px">共 \${d.t} 题</div>\`;
+    };
+    const gap = (S.side.cmp.t && S.side.sup.t)
+      ? (() => { const c = S.side.cmp.a/S.side.cmp.t, u = S.side.sup.a/S.side.sup.t;
+          const diff = Math.round(Math.abs(c-u)*100);
+          if (diff < 10) return "两篇掌握程度接近，可以按原节奏推进。";
+          return c > u ? \`最高级比比较级低 \${diff} 个百分点，重点补 Level 4–6：<b>the</b> 和 <b>most/-est</b> 不能重复用。\`
+                       : \`比较级比最高级低 \${diff} 个百分点，回头再练 Level 1–3：<b>than</b> 和 <b>more/-er</b> 不能重复用。\`; })()
+      : "两篇都完整打一遍，这里会给出对比诊断。";
+    const lvRows = LEVELS.map(l => {
+      const d = S.done[l.id], best = S.best[l.id];
+      const avg = d ? Math.round(S.time[l.id]/d) : 0;
+      return \`<div class="bar-row \${d && best < 60 ? "warn":""}">
+        <span class="lb">L\${l.id} \${l.name}</span>
+        <span class="bar"><i style="width:\${best}%"></i></span>
+        <span class="vl">\${d ? best+"%" : "未玩"}</span></div>
+        <div style="font-size:12px;color:var(--ink-soft);margin:-6px 0 10px 142px">
+          完成 \${d} 次 · ⭐\${S.stars[l.id]}/3 · 平均用时 \${avg||"—"}s</div>\`;
+    }).join("");
+    /* 找出最薄弱的规则，直接给老师教学建议 */
+    const weak = [1,2,3,4,5].filter(r => S.rule[r].t >= 2)
+      .sort((a,b) => (S.rule[a].a/S.rule[a].t) - (S.rule[b].a/S.rule[b].t))[0];
+    const advice = weak
+      ? \`<b>\${RULE_META[weak].name}</b> 掌握最弱（\${Math.round(S.rule[weak].a/S.rule[weak].t*100)}%）。
+         建议：\${RULE_META[weak].tip} 可以让学生重玩 Level 1，并在黑板上带着写三态。\`
+      : "数据还太少。建议先让每个学生完整打完 Level 1 和 Level 4，看板就能给出针对性诊断。";
+    modal(\`
+      <h3 style="text-align:center">📊 Teacher Dashboard</h3>
+      <p class="lead" style="text-align:center">课堂诊断 · 数据保存在本机浏览器</p>
+      <div class="statgrid">
+        <div class="statbox"><b>\${acc}%</b><span>OVERALL 总正确率</span></div>
+        <div class="statbox"><b>\${totQ}</b><span>QUESTIONS 总题数</span></div>
+        <div class="statbox"><b>\${Object.values(S.stars).reduce((a,b)=>a+b,0)}/\${MAX_STARS}</b><span>STARS 星星</span></div>
+        <div class="statbox"><b>\${S.coins}</b><span>COINS 金币</span></div>
+        <div class="statbox"><b>Lv.\${S.plv}</b><span>PLAYER LEVEL</span></div>
+      </div>
+      <div class="dash-grid">
+        <div class="panel"><h4>📐 五大规则掌握率</h4>\${ruleRows}</div>
+        <div class="panel"><h4>🩺 错误类型排行榜</h4>\${errRows}</div>
+        <div class="panel"><h4>⚖️ 比较级篇 vs 最高级篇</h4>
+          \${sideRow("cmp","PART 1 · 比较级")}\${sideRow("sup","PART 2 · 最高级")}
+          <div style="font-size:13px;line-height:1.7;color:var(--ink)">\${gap}</div></div>
+        <div class="panel"><h4>🗺 关卡完成情况</h4>\${lvRows}</div>
+        <div class="panel" style="grid-column:1/-1;background:#FFF6E4">
+          <h4>💡 教学建议</h4><div style="font-size:14px;line-height:1.8">\${advice}</div></div>
+      </div>
+      <div style="text-align:center;margin-top:22px">
+        <button class="btn ghost" onclick="window.print()">🖨 打印学习报告</button>
+        <button class="btn" style="margin-left:10px" onclick="closeModal()">返回课堂</button>
+      </div>\`, true);
+  }
+};
+
+/* ==========================================================================
+   PART H · 积分系统桥接：班级 / 学生 / 积分 / 日志
+   ========================================================================== */
+const bridgeState = { classes:[], currentClassId:"", students:[], studentId:"" };
+const BRIDGE_STUDENT_KEY = "ket_cs_selected_student:";
+function isEmbeddedGame(){ try{ return new URLSearchParams(location.search).get("embedded") === "1" || (window.parent && window.parent !== window); }catch(e){ return false; } }
+function sendBridge(message){ try{ if(isEmbeddedGame() && window.parent) window.parent.postMessage(message, "*"); }catch(e){} }
+function currentBridgeStudent(){ return bridgeState.students.find(s => s.id === bridgeState.studentId) || null; }
+function readRememberedStudent(classId){ try{ return classId ? (localStorage.getItem(BRIDGE_STUDENT_KEY + classId) || "") : ""; }catch(e){ return ""; } }
+function rememberStudent(classId, studentId){ try{ if(classId && studentId) localStorage.setItem(BRIDGE_STUDENT_KEY + classId, studentId); }catch(e){} }
+function setBridgeStatus(message, ready){ const el = document.getElementById("bridgeStatus"); if(!el) return; el.textContent = message; el.classList.toggle("ready", !!ready); }
+function resetProgress(){
+  const zero6 = () => ({1:0,2:0,3:0,4:0,5:0,6:0});
+  Object.assign(S,{coins:0,xp:0,plv:1,unlocked:1,stars:zero6(),best:zero6(),done:zero6(),time:zero6(),
+    rule:{1:{a:0,t:0},2:{a:0,t:0},3:{a:0,t:0},4:{a:0,t:0},5:{a:0,t:0}},
+    side:{cmp:{a:0,t:0},sup:{a:0,t:0}},err:{},qTotal:0,qRight:0});
+}
+function renderBridgeSelectors(){
+  const classSelect = document.getElementById("bridgeClassSelect");
+  const studentSelect = document.getElementById("bridgeStudentSelect");
+  if(!classSelect || !studentSelect) return;
+  classSelect.innerHTML = bridgeState.classes.length
+    ? bridgeState.classes.map(c => \`<option value="\${String(c.id).replace(/"/g,"&quot;")}">\${String(c.name).replace(/[&<>]/g,"")}</option>\`).join("")
+    : \`<option value="">暂无班级</option>\`;
+  classSelect.value = bridgeState.currentClassId || (bridgeState.classes[0] && bridgeState.classes[0].id) || "";
+  studentSelect.innerHTML = \`<option value="">请选择学生</option>\` + bridgeState.students.map(s => \`<option value="\${String(s.id).replace(/"/g,"&quot;")}">\${s.avatar ? s.avatar + " " : ""}\${String(s.name).replace(/[&<>]/g,"")}</option>\`).join("");
+  studentSelect.value = bridgeState.studentId || "";
+}
+function applyBridgeData(data){
+  const next = data || {};
+  bridgeState.classes = Array.isArray(next.classes) ? next.classes : [];
+  bridgeState.currentClassId = next.currentClassId || (bridgeState.classes[0] && bridgeState.classes[0].id) || "";
+  bridgeState.students = Array.isArray(next.students) ? next.students : [];
+  if(!bridgeState.studentId) bridgeState.studentId = readRememberedStudent(bridgeState.currentClassId);
+  if(bridgeState.studentId && !bridgeState.students.some(s => s.id === bridgeState.studentId)) bridgeState.studentId = "";
+  renderBridgeSelectors();
+  const student = currentBridgeStudent();
+  if(student){
+    const nextKey = SAVE_KEY + ":" + student.id;
+    if(activeSaveKey !== nextKey){ activeSaveKey = nextKey; resetProgress(); load(); syncHUD(); }
+  }
+  setBridgeStatus(student ? ("当前学生：" + student.name + " · 点击下方已解锁关卡开始。") : "请先选择学生，再点击关卡开始。", !!student);
+}
+function chooseBridgeStudent(id){
+  bridgeState.studentId = id || "";
+  rememberStudent(bridgeState.currentClassId, bridgeState.studentId);
+  activeSaveKey = bridgeState.studentId ? SAVE_KEY + ":" + bridgeState.studentId : SAVE_KEY;
+  resetProgress(); load(); syncHUD(); Game.goHome();
+  const student = currentBridgeStudent();
+  setBridgeStatus(student ? ("当前学生：" + student.name + " · 点击下方已解锁关卡开始。") : "请先选择学生，再点击关卡开始。", !!student);
+}
+function chooseBridgeClass(id){
+  if(!id) return;
+  bridgeState.studentId = ""; activeSaveKey = SAVE_KEY; resetProgress(); syncHUD(); Game.goHome();
+  sendBridge({type:"comparatives:switchClass", classId:id});
+}
+function requestBridgeData(){
+  if(!isEmbeddedGame()) return;
+  sendBridge({type:"comparatives:requestData"});
+  setTimeout(() => sendBridge({type:"comparatives:requestData"}), 500);
+  setTimeout(() => sendBridge({type:"comparatives:requestData"}), 1500);
+}
+window.addEventListener("message", event => {
+  const message = event && event.data;
+  if(message && message.type === "comparatives:data") applyBridgeData(message.payload);
+});
+
+/* 挂到 window，方便老师在控制台调试、二次开发或自动化测试 */
+window.CS = { MAX_STARS, QUESTION_TIME, NEXT_DELAY, timeOf, ADJS, ADJ_BANK, CMP_BANK, SUP_BANK, DOC_BANK, ICONS, ERR_LABEL,
+              RULE_META, buildForms, formsOf, subj, Subj, vb, CAT, catNoun, Game, L1, L2, L3, L4, Dash, S, Sound, Speech,
+              save, load, LEVELS };
+if(isEmbeddedGame()){
+  document.getElementById("bridgeSetup").hidden = false;
+  document.getElementById("bridgeClassSelect").addEventListener("change", e => chooseBridgeClass(e.target.value));
+  document.getElementById("bridgeStudentSelect").addEventListener("change", e => chooseBridgeStudent(e.target.value));
+  resetProgress(); syncHUD(); Game.goHome(); requestBridgeData();
+}else{
+  load(); syncHUD(); Game.goHome();
+}
+/* 课堂快捷键：Enter 下一题，空格重复朗读 */
+document.addEventListener("keydown", e => {
+  /* Enter：反馈期间立刻进入下一题；P / p：暂停自动切题以便讲解 */
+  if (e.key === "Enter" && Game.ses && Game.ses.locked) Game.advance();
+  if ((e.key === "p" || e.key === "P") && Game.ses && Game.ses.locked) Game.pauseAuto();
+  if (e.key === " " && Game.ses){ const b = document.querySelector("#stage .btn.ghost"); if (b){ e.preventDefault(); b.click(); } }
+});
+<\/script>
+</body>
+</html>
+`;
+
         function openComparativesModal() {
             const modal = document.getElementById('comparatives-modal');
             const iframe = document.getElementById('comparatives-iframe');
@@ -5409,7 +7115,9 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
                     iframe.contentWindow.postMessage({ type: 'comparatives:data', payload: getComparativesBridgeData() }, '*');
                 } catch (e) {}
             };
-            iframe.src = 'KET-Comparatives-Superlatives-Trainer_3.html?embedded=1';
+            iframe.removeAttribute('src');
+            iframe.srcdoc = '';
+            iframe.srcdoc = window._comparativesHtml || '';
             modal.classList.add('show');
         }
 
@@ -5465,7 +7173,7 @@ button,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulat
             }
             if(id === 'comparatives-modal') {
                 const f = document.getElementById('comparatives-iframe');
-                if(f) { f.onload = null; f.src = ''; }
+                if(f) { f.onload = null; f.removeAttribute('src'); f.srcdoc = ''; }
             }
         }
 
