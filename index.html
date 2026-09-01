@@ -8776,17 +8776,10 @@ document.addEventListener("keydown", e => {
             })).filter(item => item.members.length);
             const ungrouped = students.filter(student => !getStudentGroup(student));
 
-            // 三个小组且每组不超过三人时按行排；人数更多时按列排，颜色会形成清晰的队伍区域。
+            // 2～3 个小组时固定按列排列，让每个小组从上到下形成一列。
             const canUseGroupLayout = !ungrouped.length && grouped.length >= 2 && grouped.length <= 3;
             if (canUseGroupLayout) {
-                const useRows = grouped.every(item => item.members.length <= 3);
                 const items = [];
-                if (useRows) {
-                    grouped.forEach((item, row) => item.members.forEach((student, column) => {
-                        items.push({ student, row: row + 1, column: column + 1 });
-                    }));
-                    return { items, rows: Math.max(3, grouped.length), explicit: true };
-                }
                 const rows = Math.max(...grouped.map(item => item.members.length));
                 grouped.forEach((item, column) => item.members.forEach((student, row) => {
                     items.push({ student, row: row + 1, column: column + 1 });
