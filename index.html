@@ -43,7 +43,8 @@
             { id:'tense-mix', group:'英语练习', name:'时态小侦探', icon:'🕵️', color:'var(--btn-blue)', action:'openTenseMixModal' },
             { id:'quantity-rescue', group:'英语练习', name:'数量与名词闯关', icon:'🛒', color:'var(--btn-gold)', action:'openQuantityModal' },
             { id:'too-enough', group:'英语练习', name:'too / enough 帽子店挑战', icon:'🎩', color:'var(--btn-cyan)', action:'openTooEnoughModal' },
-            { id:'comparatives', group:'英语练习', name:'形容词比较级最高级', icon:'⚖️', color:'var(--btn-pink)', action:'openComparativesModal' }
+            { id:'comparatives', group:'英语练习', name:'形容词比较级最高级', icon:'⚖️', color:'var(--btn-pink)', action:'openComparativesModal' },
+            { id:'pronouns', group:'英语练习', name:'代词冒险', icon:'🧭', color:'var(--btn-cyan)', action:'openPronounsModal' }
         ];
 
         function getPinnedGameIds(){
@@ -781,7 +782,7 @@
         function openClassModal(){ renderClassList(); renderArchivedList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
-        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderGroupSummary(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); const teif=document.getElementById('too-enough-iframe'); if(teif&&teif.contentWindow) teif.contentWindow.postMessage({type:'tooenough:data',payload:getTooEnoughBridgeData()},'*'); const cif=document.getElementById('comparatives-iframe'); if(cif&&cif.contentWindow) cif.contentWindow.postMessage({type:'comparatives:data',payload:getComparativesBridgeData()},'*'); }catch(e){} }
+        function switchClass(id){ if(id===currentClassId) return; if(isCloudMode) syncCurrentClassToCloud(); currentClassId=id; historyStack=[]; saveAllClasses(); saveData(); renderGroupSummary(); renderClassList(); try{ const dif=document.getElementById('dictation-iframe'); if(dif&&dif.contentWindow) dif.contentWindow.postMessage({type:'dictation:refresh'},'*'); const lif=document.getElementById('listen-choice-iframe'); if(lif&&lif.contentWindow) lif.contentWindow.postMessage({type:'listenchoice:refresh'},'*'); const wif=document.getElementById('wheel-iframe'); if(wif&&wif.contentWindow) wif.contentWindow.postMessage({type:'wheel:refresh'},'*'); const mif=document.getElementById('match-iframe'); if(mif&&mif.contentWindow) mif.contentWindow.postMessage({type:'matchgame:refresh'},'*'); const kvif=document.getElementById('ket-verb-iframe'); if(kvif&&kvif.contentWindow) kvif.contentWindow.postMessage({type:'ketverb:data',payload:getKetVerbBridgeData()},'*'); const tif=document.getElementById('tense-iframe'); if(tif&&tif.contentWindow) tif.contentWindow.postMessage({type:'tense:data',payload:getTenseBridgeData()},'*'); const pcif=document.getElementById('pc-iframe'); if(pcif&&pcif.contentWindow) pcif.contentWindow.postMessage({type:'pctense:data',payload:getPcTenseBridgeData()},'*'); const teif=document.getElementById('too-enough-iframe'); if(teif&&teif.contentWindow) teif.contentWindow.postMessage({type:'tooenough:data',payload:getTooEnoughBridgeData()},'*'); const cif=document.getElementById('comparatives-iframe'); if(cif&&cif.contentWindow) cif.contentWindow.postMessage({type:'comparatives:data',payload:getComparativesBridgeData()},'*'); const pif=document.getElementById('pronouns-iframe'); if(pif&&pif.contentWindow) pif.contentWindow.postMessage({type:'pronouns:data',payload:getPronounsBridgeData()},'*'); }catch(e){} }
         function renameClass(id){ let cls=allClasses[id]; let name=prompt('新名称',cls.name); if(name&&name.trim()){ cls.name=name.trim(); saveAllClasses(); updateClassTitle(); renderClassList(); } }
         async function deleteClass(id){ const cls = allClasses[id]; if(!cls) return; if(!confirm(`⚠ 确定要删除班级「${cls.name}」吗？\n班级内 ${cls.students.length} 名学生数据将全部删除，不可恢复！`)) return; if (currentClassId === id) { const otherIds = Object.keys(allClasses).filter(k => k !== id); if (otherIds.length > 0) { currentClassId = otherIds[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } } delete allClasses[id]; historyStack = []; saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); if (isCloudMode) { markClassAsDeleted(id); try { await deleteClassFromCloud(id); clearDeleteMark(id); updateSyncStatus('ok'); } catch(e) { updateSyncStatus('error'); } } }
         
@@ -1041,6 +1042,27 @@
             }
             if (msg.type === 'comparatives:addWrongItems') {
                 window.comparativesAPI.addComparativesWrongItems(msg.studentId, msg.level, msg.items);
+                return;
+            }
+            if (msg.type === 'pronouns:requestData') {
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'pronouns:data', payload: getPronounsBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'pronouns:switchClass') {
+                switchClass(msg.classId);
+                if (event.source && event.source.postMessage) {
+                    event.source.postMessage({ type: 'pronouns:data', payload: getPronounsBridgeData() }, '*');
+                }
+                return;
+            }
+            if (msg.type === 'pronouns:addScore') {
+                window.pronounsAPI.addPronounsScore(msg.studentId, msg.score);
+                return;
+            }
+            if (msg.type === 'pronouns:addWrongItems') {
+                window.pronounsAPI.addPronounsWrongItems(msg.studentId, msg.level, msg.items);
                 return;
             }
         });
@@ -1312,6 +1334,47 @@
                 classes: window.comparativesAPI.getClasses(),
                 currentClassId: window.comparativesAPI.getCurrentClassId(),
                 students: window.comparativesAPI.getStudents()
+            };
+        }
+
+        window.pronounsAPI = {
+            getClasses: () => Object.keys(allClasses).map(id => ({ id, name: allClasses[id]?.name || '未命名' })),
+            getCurrentClassId: () => currentClassId,
+            getStudents: () => getActiveStudents().map(s => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score })),
+            switchClass: (id) => switchClass(id),
+            addPronounsScore: (studentId, score) => {
+                const val = parseInt(score, 10);
+                if (!studentId || !Number.isFinite(val) || val === 0) return false;
+                selectCategoryButton('互动');
+                updateScore(studentId, val);
+                return true;
+            },
+            addPronounsWrongItems: (studentId, level, items) => {
+                const list = Array.isArray(items) ? items.map(w => {
+                    if (w && typeof w === 'object') return String(w.prompt || '') + ' → ' + String(w.answer || '');
+                    return String(w || '');
+                }).map(w => w.trim()).filter(Boolean) : [];
+                if (!studentId || list.length === 0) return false;
+                const s = getStudents().find(st => st.id === studentId);
+                if (!s) return false;
+                saveStateToHistory();
+                const t = new Date();
+                const dateStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+                const timeStr = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+                const cat = '代词冒险错题' + (level ? ('·' + level) : '');
+                getLogs().unshift({ date: dateStr, time: timeStr, name: s.name, category: cat, delta: list.join('；') });
+                while (getLogs().length > 200) getLogs().pop();
+                saveAllClasses();
+                saveData();
+                return true;
+            }
+        };
+
+        function getPronounsBridgeData() {
+            return {
+                classes: window.pronounsAPI.getClasses(),
+                currentClassId: window.pronounsAPI.getCurrentClassId(),
+                students: window.pronounsAPI.getStudents()
             };
         }
 
@@ -7376,6 +7439,205 @@ document.addEventListener("keydown", e => {
 </html>
 `;
 
+        window._pronounsHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>KET U6 · Pronoun Quest 代词探险队</title>
+<style>
+:root{
+  --cream:#fffdf7;--paper:#fff;--ink:#183b43;--muted:#6f8f96;--line:#deece9;
+  --teal:#16a69b;--teal-dark:#08756e;--sky:#56a9f8;--sky-dark:#287dcc;
+  --peach:#ff9d72;--peach-dark:#dc704d;--lav:#8d7be8;--lav-dark:#6554b8;
+  --yellow:#ffc44d;--yellow-dark:#dc9717;--green:#61c790;--red:#ee806f;
+  --shadow:0 12px 32px rgba(24,59,67,.10);--shadow-sm:0 4px 12px rgba(24,59,67,.08);
+  --display:"Avenir Next","Segoe UI Variable Display","Nunito","PingFang SC","Microsoft YaHei",sans-serif;
+  --body:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;margin:0}
+body{font-family:var(--body);color:var(--ink);background:
+  radial-gradient(900px 480px at 0 -12%,#e5f7f3 0,transparent 65%),
+  radial-gradient(900px 500px at 100% 0,#eaf3ff 0,transparent 62%),var(--cream);overflow-x:hidden}
+button,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible{outline:3px solid #56a9f8;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.app{max-width:1240px;margin:auto;padding:20px 22px 48px}
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+.brand-mark{width:58px;height:58px;border-radius:21px 21px 21px 8px;display:grid;place-items:center;background:linear-gradient(145deg,#ffd26b,#ffad45);box-shadow:0 6px 0 #e69b2e;font-size:31px;transform:rotate(-3deg)}
+.brand h1{margin:0;font:800 clamp(22px,3vw,32px)/1 var(--display);letter-spacing:-.8px}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:700}
+.icon-btn,.soft-btn,.primary-btn,.level-card,.option-btn,.next-btn{border:0;border-radius:17px;background:#fff;color:var(--ink);box-shadow:var(--shadow-sm);font-weight:800;transition:transform .16s ease,box-shadow .16s ease,filter .16s ease}
+.icon-btn{min-width:48px;min-height:48px;padding:0 13px;font-size:21px}
+.soft-btn{min-height:47px;padding:0 18px;background:#edf9f6;color:var(--teal-dark)}
+.primary-btn{min-height:54px;padding:0 24px;background:linear-gradient(145deg,#68cfc1,var(--teal));color:#fff;box-shadow:0 6px 0 var(--teal-dark),var(--shadow-sm);font-size:17px}
+.primary-btn.peach{background:linear-gradient(145deg,#ffb18b,var(--peach));box-shadow:0 6px 0 var(--peach-dark),var(--shadow-sm)}
+.icon-btn:hover,.soft-btn:hover,.primary-btn:hover,.level-card:hover,.option-btn:hover,.next-btn:hover{transform:translateY(-3px);filter:saturate(1.06)}
+.icon-btn:active,.soft-btn:active,.primary-btn:active,.level-card:active,.option-btn:active,.next-btn:active{transform:translateY(2px)}
+.card{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow);padding:clamp(20px,3vw,32px)}
+.setup{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-bottom:20px}
+.setup-main{background:linear-gradient(135deg,#e8f8f4,#fff5df);position:relative;overflow:hidden}
+.setup-main:after{content:'🧩';position:absolute;right:34px;bottom:-9px;font-size:112px;opacity:.17;transform:rotate(12deg)}
+.eyebrow{font-size:12px;letter-spacing:1.2px;font-weight:900;color:var(--teal-dark);text-transform:uppercase}
+.setup h2{font:800 clamp(28px,4vw,46px)/1.08 var(--display);margin:8px 0 11px;letter-spacing:-1px;max-width:650px}
+.setup h2 em{color:var(--teal);font-style:normal}
+.setup p{margin:0;color:var(--muted);line-height:1.7;font-weight:650;max-width:680px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:19px}.badge{padding:9px 12px;border-radius:999px;background:#fff;font-size:13px;font-weight:850;box-shadow:0 2px 7px rgba(24,59,67,.06)}
+.setup-panel h3{margin:0 0 8px;font:800 21px var(--display)}
+.setup-panel .hint{margin:0 0 16px;color:var(--muted);font-size:14px;font-weight:700;line-height:1.5}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;color:var(--muted);font-weight:850}.field select{width:100%;min-height:45px;border:2px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);font-weight:800;padding:0 11px}
+.ready{color:var(--teal-dark)!important}
+.section-head{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:0 0 16px}.section-head h2{margin:0;font:800 26px var(--display)}.section-head p{margin:0;color:var(--muted);font-size:13px;font-weight:700}
+.map{margin-bottom:20px}.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.level-card{position:relative;text-align:left;min-height:158px;padding:19px;background:#effaf7;box-shadow:0 5px 0 #c8eae4;font:inherit}.level-card:nth-child(2){background:#eef6ff;box-shadow:0 5px 0 #c9e0f8}.level-card:nth-child(3){background:#fff3e9;box-shadow:0 5px 0 #f4d7c1}.level-card:nth-child(4){background:#f1efff;box-shadow:0 5px 0 #d8d2f5}.level-card:nth-child(5){background:#fff9df;box-shadow:0 5px 0 #f1e2a9}.level-card:nth-child(6){background:#ffedeb;box-shadow:0 5px 0 #f3c7bf}.level-card.locked{filter:grayscale(.75);opacity:.55;cursor:not-allowed;box-shadow:none}.level-icon{font-size:34px;display:block;margin-bottom:8px}.level-card strong{display:block;font:800 17px var(--display)}.level-card small{display:block;color:var(--muted);font-size:13px;font-weight:700;line-height:1.45;margin-top:5px;max-width:260px}.level-stars{margin-top:11px;font-size:18px;letter-spacing:1px}.level-stars i{font-style:normal;filter:grayscale(1);opacity:.3}.level-stars i.on{filter:none;opacity:1}.lock{position:absolute;right:15px;top:14px;font-size:18px}
+.tips{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:17px}.tip{padding:14px;border-radius:18px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:750;line-height:1.5}.tip b{display:block;font-size:15px;margin-bottom:3px}.tip.subject b{color:var(--teal-dark)}.tip.object b{color:var(--sky-dark)}.tip.adj b{color:var(--peach-dark)}.tip.pronoun b{color:var(--lav-dark)}
+.play{display:none}.play.active{display:block;animation:fadeUp .4s ease}.play-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:15px}.play-title{margin-right:auto}.play-title strong{display:block;font:800 22px var(--display)}.play-title small{color:var(--muted);font-weight:700}.question-count{padding:10px 13px;background:#f2f8f7;border-radius:999px;font-weight:900}.progress{height:11px;flex:1;min-width:140px;border-radius:99px;background:#e5f0ee;overflow:hidden}.progress i{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#74d1c2,var(--teal));transition:width .3s ease}
+.play-card{padding:clamp(20px,4vw,42px);text-align:center;min-height:470px;display:flex;flex-direction:column;align-items:center;justify-content:center}.question-tag{color:var(--teal-dark);font-size:13px;letter-spacing:1px;font-weight:900;text-transform:uppercase;margin-bottom:13px}.question{font:800 clamp(25px,4vw,42px)/1.35 var(--display);margin:0;max-width:930px;letter-spacing:-.5px}.question .blank{display:inline-flex;min-width:96px;justify-content:center;border-bottom:4px dotted var(--peach);color:var(--peach-dark);margin:0 4px}.question-note{margin:10px 0 0;color:var(--muted);font-size:14px;font-weight:700}.options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;width:min(850px,100%);margin-top:26px}.option-btn{min-height:67px;padding:12px 16px;font-size:20px;background:#fff;border:3px solid #e6efee;box-shadow:0 4px 0 #e4eeee}.option-btn.correct{border-color:var(--green);background:#eafaf3;box-shadow:0 4px 0 #bce8d0;color:#16734e}.option-btn.wrong{border-color:var(--red);background:#fff0ed;box-shadow:0 4px 0 #f1c6bf;color:#a34b40;animation:shake .4s}.option-btn.dim{opacity:.45}.feedback{width:min(850px,100%);min-height:62px;margin-top:19px;padding:14px 18px;border-radius:17px;display:none;text-align:left;line-height:1.6;font-size:15px;font-weight:700}.feedback.show{display:block;animation:pop .3s ease}.feedback.good{background:#e9faf3;color:#287b61}.feedback.bad{background:#fff1ee;color:#a35146}.feedback b{font-size:16px}.feedback .rule{display:block;margin-top:3px;font-size:14px;font-weight:650}.next-row{min-height:58px;margin-top:15px;display:flex;align-items:center;justify-content:center;gap:11px;flex-wrap:wrap}.next-btn{min-height:50px;padding:0 22px;background:linear-gradient(145deg,#75bfff,var(--sky));box-shadow:0 5px 0 var(--sky-dark);color:#fff;font-size:17px}.auto-bar{height:8px;width:185px;background:#e6f0ef;border-radius:99px;overflow:hidden}.auto-bar i{display:block;width:0;height:100%;background:var(--green);transition:width 1s linear}.wait-hint{color:var(--muted);font-size:13px;font-weight:750}.timer-wrap{display:flex;align-items:center;gap:10px;margin:0 auto 20px}.timer-ring{--ratio:1;--timer-color:var(--teal);width:83px;height:83px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--timer-color) calc(var(--ratio)*1turn),#e5efed 0);box-shadow:0 6px 15px rgba(24,59,67,.08);transition:background .12s linear}.timer-ring:before{content:"";grid-area:1/1;width:65px;height:65px;border-radius:50%;background:#fff}.timer-number{grid-area:1/1;z-index:1;font:900 28px var(--display);color:var(--teal-dark)}.timer-label{font-size:12px;color:var(--muted);font-weight:850;text-align:left}.timer-ring.warn{--timer-color:var(--yellow-dark);animation:pulse .8s ease-in-out infinite}.timer-ring.urgent{--timer-color:var(--red);animation:pulse .48s ease-in-out infinite}.timer-label b{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}
+.result{display:none;margin-top:20px;text-align:center}.result.active{display:block;animation:fadeUp .4s ease}.result-icon{font-size:59px}.result h2{font:800 34px var(--display);margin:5px 0}.result p{color:var(--muted);font-weight:700}.result-score{font:900 44px var(--display);color:var(--teal);margin:8px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:720px;margin:18px auto}.stat{padding:13px 9px;background:#f5f9f8;border-radius:16px}.stat b{display:block;font:900 22px var(--display)}.stat span{display:block;color:var(--muted);font-size:11px;font-weight:850;margin-top:3px}.wrong-box{max-width:800px;margin:16px auto 0;text-align:left;background:#fff8eb;border-radius:17px;padding:15px 18px;color:#7c6248;line-height:1.65}.wrong-box h3{font-size:16px;margin:0 0 7px}.wrong-box ul{margin:0;padding-left:20px}.result-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.modal-mask{position:fixed;inset:0;background:rgba(24,59,67,.32);display:grid;place-items:center;padding:18px;z-index:20}.modal{width:min(720px,100%);max-height:86vh;overflow:auto;background:#fffdf7;border-radius:25px;padding:26px;box-shadow:0 25px 70px rgba(24,59,67,.24);animation:pop .3s ease}.modal h3{font:800 25px var(--display);margin:0 0 7px}.modal p{color:var(--muted);line-height:1.6;font-weight:650}.report-row{display:flex;align-items:center;gap:10px;margin:10px 0}.report-row .label{width:170px;font-size:13px;font-weight:800}.report-bar{height:10px;flex:1;background:#e8f0ef;border-radius:99px;overflow:hidden}.report-bar i{display:block;height:100%;background:linear-gradient(90deg,#7bd3c4,var(--teal));border-radius:99px}.report-row .value{width:42px;text-align:right;font-size:13px;font-weight:900}
+@keyframes fadeUp{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:none}}@keyframes pop{0%{opacity:.4;transform:scale(.94)}100%{opacity:1;transform:none}}@keyframes pulse{50%{transform:scale(1.06)}}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}50%{transform:translateX(7px)}75%{transform:translateX(-3px)}}
+@media(max-width:850px){.setup{grid-template-columns:1fr}.levels{grid-template-columns:repeat(2,1fr)}.tips{grid-template-columns:repeat(2,1fr)}.play-card{min-height:500px}}
+@media(max-width:560px){.app{padding:14px 12px 30px}.brand-mark{width:50px;height:50px;font-size:27px}.brand h1{font-size:23px}.brand p{font-size:11px}.fields{grid-template-columns:1fr}.levels{grid-template-columns:1fr 1fr;gap:9px}.level-card{min-height:142px;padding:14px}.level-icon{font-size:28px}.level-card strong{font-size:15px}.level-card small{font-size:12px}.tips{grid-template-columns:1fr 1fr}.tip{padding:10px;font-size:12px}.options{grid-template-columns:1fr}.option-btn{min-height:60px;font-size:18px}.play-head{gap:8px}.progress{order:5;flex-basis:100%}.stats{grid-template-columns:repeat(2,1fr)}.question{font-size:27px}.timer-ring{width:76px;height:76px}.timer-ring:before{width:59px;height:59px}.timer-number{font-size:25px}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">🧭</div><div><h1>代词探险队</h1><p>KET Unit 6 · Pronoun Quest</p></div></div>
+    <button class="icon-btn" id="soundBtn" type="button" title="声音开关" aria-label="声音开关">🔊</button>
+    <button class="soft-btn" id="reportBtn" type="button">📊 学习报告</button>
+  </header>
+
+  <section class="setup card" id="setupCard">
+    <div class="setup-main card">
+      <div class="eyebrow">GRAMMAR ADVENTURE · U6</div>
+      <h2>找到正确的代词，<em>闯过四座语法岛</em>！</h2>
+      <p>先判断它在句子中的位置：谁做动作、动作指向谁、谁的东西，以及“谁的”能不能单独使用。</p>
+      <div class="badges"><span class="badge">🎯 每关 10 题</span><span class="badge">⏱ 每题 15 秒</span><span class="badge">⭐ 60% 解锁下一关</span></div>
+    </div>
+    <div class="setup-panel card">
+      <h3>准备出发</h3>
+      <p class="hint" id="bridgeHint">独立预览模式：选择一位体验学生即可开始。</p>
+      <div class="fields"><div class="field"><label for="classSelect">班级</label><select id="classSelect"></select></div><div class="field"><label for="studentSelect">学生</label><select id="studentSelect"></select></div></div>
+      <button class="primary-btn" id="startBtn" type="button">▶ 查看关卡地图</button>
+    </div>
+  </section>
+
+  <section class="map card" id="mapCard">
+    <div class="section-head"><h2>🗺 关卡地图</h2><p id="unlockText">请选择学生后开始</p></div>
+    <div class="levels" id="levels"></div>
+    <div class="tips">
+      <div class="tip subject"><b>🟢 主格</b>I / you / he… 放在动词前</div>
+      <div class="tip object"><b>🔵 宾格</b>me / him / us… 放在动词或介词后</div>
+      <div class="tip adj"><b>🟠 形物代</b>my / your + 名词</div>
+      <div class="tip pronoun"><b>🟣 名物代</b>mine / yours 单独使用</div>
+    </div>
+  </section>
+
+  <section class="play" id="playCard">
+    <div class="play-head"><button class="soft-btn" id="mapBtn" type="button">← 关卡地图</button><div class="play-title"><strong id="levelTitle"></strong><small id="levelSubtitle"></small></div><div class="progress"><i id="progressBar"></i></div><div class="question-count" id="questionCount">1 / 10</div></div>
+    <div class="play-card card">
+      <div class="timer-wrap"><div class="timer-ring" id="timerRing"><span class="timer-number" id="timerNumber">15</span></div><div class="timer-label"><b>剩余时间</b><span>看位置，选形式</span></div></div>
+      <div class="question-tag" id="questionTag">选择正确的代词</div>
+      <p class="question" id="question"></p>
+      <p class="question-note" id="questionNote"></p>
+      <div class="options" id="options"></div>
+      <div class="feedback" id="feedback"></div>
+      <div class="next-row" id="nextRow"></div>
+    </div>
+  </section>
+
+  <section class="result card" id="resultCard"><div class="result-icon" id="resultIcon">🎉</div><h2 id="resultTitle">关卡完成！</h2><p id="resultText"></p><div class="result-score" id="resultScore">⭐ 0</div><div class="stats"><div class="stat"><b id="resultCorrect">0/10</b><span>答对题数</span></div><div class="stat"><b id="resultAccuracy">0%</b><span>正确率</span></div><div class="stat"><b id="resultCombo">0</b><span>最佳连击</span></div><div class="stat"><b id="resultStars">0/3</b><span>本关星星</span></div></div><div class="wrong-box" id="wrongBox" hidden><h3>💡 需要复习</h3><ul id="wrongList"></ul></div><div class="result-actions"><button class="soft-btn" id="resultMapBtn" type="button">返回关卡地图</button><button class="primary-btn peach" id="retryBtn" type="button">再练一轮</button></div></section>
+</main>
+<div id="modalHost"></div>
+<script>
+'use strict';
+const QUESTION_TIME=15, QUESTION_COUNT=10;
+const demoBridge={classes:[{id:'preview',name:'独立预览班'}],currentClassId:'preview',students:[{id:'preview-a',name:'体验学生 A',avatar:'🐰'},{id:'preview-b',name:'体验学生 B',avatar:'🦊'},{id:'preview-c',name:'体验学生 C',avatar:'🐼'}]};
+const LEVELS=[
+ {icon:'🚀',title:'主格发射台',subtitle:'谁在做动作？I / you / he…',tag:'Subject pronouns · 主格',color:'#16a69b',questions:[
+  q('s1','___ am ready for the game.',['I','Me','My','Mine'],'a','主格放在动词前，表示“谁在做动作”。','主格：I + am。'),q('s2','___ are my best friends.',['They','Them','Their','Theirs'],'a','主语是“他们”，放在 are 前面。','主格：They + are。'),q('s3','Lucy is my sister. ___ is ten.',['She','Her','Hers','Their'],'a','Lucy 是女性，作主语要用 she。','主格：She + is。'),q('s4','Tom has a new bike. ___ rides it every day.',['He','Him','His','Hers'],'a','Tom 是男性，放在 rides 前面用 he。','主格：He + rides。'),q('s5','The dog is hungry. ___ wants some food.',['It','Its','Them','They'],'a','动物或物品作主语，通常用 it。','主格：It + wants。'),q('s6','Anna and I like music. ___ sing together.',['We','Us','Our','Ours'],'a','Anna 和“我”合起来是 we。','主格：We + sing。'),q('s7','Can ___ help me with this exercise?',['you','your','yours','them'],'a','问“你能不能……”时，you 放在 can 后作主语。','主格：Can you…?'),q('s8','My brother and I are at school. ___ have English today.',['We','Us','Our','Ours'],'a','“我和我的弟弟”是复数主语 we。','主格：We + have。'),q('s9','The books are on the desk. ___ are new.',['They','Them','Their','Theirs'],'a','books 是复数物品，主语用 they。','主格：They + are。'),q('s10','___ is your English teacher?',['Who','Whom','Whose','Which'],'a','询问“谁”并作主语，用 who。','Who 可以在句首作主语。'),q('s11','My parents are kind. ___ help me a lot.',['They','Them','Their','Theirs'],'a','parents 是复数人，主语用 they。','主格：They + help。'),q('s12','___ is raining outside.',['It','Its','They','Them'],'a','天气表达中使用 it 作形式主语。','It is raining。') ]},
+ {icon:'🎯',title:'宾格接收站',subtitle:'动作指向谁？me / him / us…',tag:'Object pronouns · 宾格',color:'#56a9f8',questions:[
+  q('o1','The teacher is talking to ___.',['we','our','us','ours'],'c','to 是介词，介词后面使用宾格。','to + us。'),q('o2','Can you help ___, please?',['I','me','my','mine'],'b','help 后面是动作的对象，要用 me。','help + me。'),q('o3','I can see Tom. I can see ___.',['he','him','his','hers'],'b','Tom 是动作 see 的对象，要用 him。','see + him。'),q('o4','Please give the book to ___.',['she','her','hers','their'],'b','to 后面用宾格 her，表示“给她”。','to + her。'),q('o5','We like this game. It is fun for ___.',['we','our','us','ours'],'c','for 是介词，后面用 us。','for + us。'),q('o6','Sam is my friend. I often play with ___.',['he','him','his','himself'],'b','with 后面使用宾格 him。','with + him。'),q('o7','The children are waiting for ___.',['they','their','them','theirs'],'c','for 后面需要宾格 them。','for + them。'),q('o8','Look at ___. It is a beautiful bird.',['it','its','they','them'],'a','鸟是 look at 的对象，单数物品用 it。','look at + it。'),q('o9','Mum is calling ___.',['I','my','me','mine'],'c','calling 后面是被叫的人，用 me。','calling + me。'),q('o10','Please listen to ___.',['he','him','his','himself'],'b','to 后面用宾格 him。','listen to + him。'),q('o11','The coach is speaking to Anna and me. He is speaking to ___.',['we','our','us','ours'],'c','Anna 和“我”是 speaking to 的对象，用 us。','speaking to + us。'),q('o12','I love my grandparents. I visit ___.',['they','their','them','theirs'],'c','grandparents 是 visit 的对象，用 them。','visit + them。') ]},
+ {icon:'🏷️',title:'谁的标签工厂',subtitle:'谁的 + 名词：my / your / their…',tag:'Possessive adjectives · 形物代',color:'#ff9d72',questions:[
+  q('a1','This is ___ pencil.',['you','your','yours','you’re'],'b','your 后面有名词 pencil，表示“你的铅笔”。','your + noun。'),q('a2','I have a sister. ___ name is Lily.',['She','Her','Hers','Him'],'b','name 是名词，前面用 her 表示“她的名字”。','her + name。'),q('a3','We love ___ English teacher.',['us','our','ours','we'],'b','teacher 是名词，前面用 our。','our + teacher。'),q('a4','They are playing with ___ dog.',['them','their','theirs','they'],'b','dog 是名词，前面用 their。','their + dog。'),q('a5','He is wearing ___ new shoes.',['him','his','he','hers'],'b','shoes 是名词，前面用 his。','his + shoes。'),q('a6','The cat is licking ___ paw.',['it','its','it’s','them'],'b','paw 是名词，表示“它的爪子”用 its。','its + paw。'),q('a7','Is this ___ book, Jack?',['you','your','yours','us'],'b','book 是名词，表示“你的书”用 your。','your + book。'),q('a8','Anna and I are doing ___ homework.',['us','our','ours','we'],'b','homework 是名词，前面用 our。','our + homework。'),q('a9','The boys are washing ___ hands.',['them','their','theirs','they'],'b','hands 是名词，前面用 their。','their + hands。'),q('a10','I like ___ new jacket.',['me','my','mine','I'],'b','jacket 是名词，前面用 my。','my + jacket。'),q('a11','She is riding ___ bike to school.',['her','hers','she','them'],'a','bike 是名词，前面用 her。','her + bike。'),q('a12','You must bring ___ pencil case tomorrow.',['you','your','yours','we'],'b','pencil case 是名词，前面用 your。','your + pencil case。') ]},
+ {icon:'🎁',title:'失物招领处',subtitle:'“谁的”单独站立：mine / yours…',tag:'Possessive pronouns · 名物代',color:'#8d7be8',questions:[
+  q('p1','This pencil is ___.',['my','me','mine','I'],'c','后面没有名词，表示“我的（铅笔）”要用 mine。','mine 单独使用。'),q('p2','That red bag is ___.',['your','you','yours','our'],'c','yours 可以单独使用，后面不能再接 bag。','yours = your bag。'),q('p3','This bike belongs to Ben. It is ___.',['he','his','him','her'],'b','表示“他的（自行车）”且单独使用，用 his。','his 单独使用。'),q('p4','The blue coat belongs to Lily. It is ___.',['her','hers','she','their'],'b','表示“她的（外套）”且单独使用，用 hers。','hers 单独使用。'),q('p5','The classroom belongs to us. It is ___.',['our','us','ours','we'],'c','ours 可以替代 our classroom，单独使用。','ours = our classroom。'),q('p6','The toys belong to the children. They are ___.',['their','them','theirs','they'],'c','theirs 表示“他们的（玩具）”，单独使用。','theirs = their toys。'),q('p7','Is this phone ___?',['your','you','yours','our'],'c','句末没有名词，使用 yours。','Is this yours?'),q('p8','This seat is not ___. It is hers.',['my','mine','me','our'],'b','not 后面单独表示“我的”，使用 mine。','not mine。'),q('p9','Our team won. The trophy is ___.',['our','us','ours','we'],'c','trophy 属于 our team，用 ours 单独代替。','ours = our trophy。'),q('p10','I found a scarf. Is it ___, Emma?',['your','you','yours','her'],'c','询问物品是不是“你的”，用 yours。','Is it yours?'),q('p11','This is not their ball. The ball is ___.',['our','ours','us','we'],'b','表示“我们的球”且不重复 ball，用 ours。','ours 单独使用。'),q('p12','That red bicycle is ___. It belongs to me.',['my','mine','me','our'],'b','belongs to me 对应 mine。','mine = my bicycle。') ]},
+ {icon:'🧩',title:'四岔路口',subtitle:'看位置，四类代词一起辨析',tag:'Mixed pronouns · 综合辨析',color:'#ffc44d',questions:[
+  q('m1','___ brother helps ___.',['My / me','Mine / I','Me / my','I / mine'],'a','brother 前用形物代 my；helps 后用宾格 me。','my + noun；help + me。'),q('m2','___ are playing with ___ new ball.',['They / their','Them / theirs','Their / they','Theirs / them'],'a','主语用 they；ball 前用 their。','They + verb；their + noun。'),q('m3','This is ___ book. The book is ___.',['my / mine','mine / my','me / my','I / me'],'a','book 前用 my；第二句没有名词，用 mine。','my book；mine。'),q('m4','The teacher gives ___ homework. We do ___.',['us / it','we / its','our / them','ours / they'],'a','gives 后用 us；homework 是 do 的对象，用 it。','gives us；do it。'),q('m5','Anna is ___ friend. I often talk to ___.',['my / her','mine / she','me / hers','I / their'],'a','friend 前用 my；talk to 后用 her。','my friend；talk to her。'),q('m6','This is Tom’s bag. It is ___.',['his','him','he','their'],'a','Tom’s bag = his，名物代可以单独使用。','his = his bag。'),q('m7','___ parents are kind. I like ___.',['Their / them','They / their','Theirs / they','Them / theirs'],'a','parents 前用 their；like 后用 them。','their parents；like them。'),q('m8','Can ___ bring ___ book tomorrow?',['you / your','your / yours','yours / you','us / our'],'a','Can 后主语用 you；book 前用 your。','you + verb；your + noun。'),q('m9','We have a garden. The garden is ___.',['our','ours','us','we'],'b','没有重复 garden，单独表示“我们的”用 ours。','ours = our garden。'),q('m10','The dog is looking at ___. ___ tail is long.',['it / Its','its / It','they / Their','him / His'],'a','look at 后用 it；tail 前用 its。','look at it；its tail。'),q('m11','I know Lily. I often play with ___. ___ brother is funny.',['her / Her','hers / She','she / Hers','their / Them'],'a','play with 后用 her；brother 前用 Her。','with her；her brother。'),q('m12','The red pencils are ___. Please give them to ___.',['ours / us','our / we','us / ours','we / our'],'a','pencils 属于我们用 ours；give to 后用 us。','ours；to us。') ]},
+ {icon:'🏫',title:'KET 校园任务 Boss',subtitle:'对话、改错和生活情境综合挑战',tag:'KET mission · 语境应用',color:'#ee806f',boss:true,questions:[
+  q('b1','Mia: Is this ___ notebook? Ben: No, it is ___.',['your / mine','yours / my','you / me','our / us'],'a','第一空后有 notebook，用 your；第二空单独使用 mine。','your notebook；mine。'),q('b2','The teacher says, “Please listen to ___.”',['I','my','me','mine'],'c','listen to 后面使用宾格 me。','listen to me。'),q('b3','找出正确句子：',['This is me pencil.','This is my pencil.','This is mine pencil.','This is I pencil.'],'b','pencil 前必须使用形物代 my。','my + pencil。'),q('b4','Tom and I have a project. ___ are working on ___ project.',['We / our','Us / ours','Our / we','Ours / us'],'a','主语用 We；project 前用 our。','We + verb；our + noun。'),q('b5','Lily is absent today. Please give the worksheet to ___.',['she','her','hers','their'],'b','give to 后面用宾格 her。','give to her。'),q('b6','找出正确句子：',['The blue bag is her.','The blue bag is hers.','The blue bag is she.','The blue bag is their.'],'b','句末没有名词，表示“她的包”用 hers。','The bag is hers。'),q('b7','A: Who is that boy? B: ___ is my cousin.',['Him','His','He','Hers'],'c','回答“他是谁”时，he 作主语放在 is 前。','He is…'),q('b8','We are making a poster. Can you help ___?',['we','our','us','ours'],'c','help 后面是动作对象，用 us。','help us。'),q('b9','找出正确句子：',['They classroom is big.','Them classroom is big.','Their classroom is big.','Theirs classroom is big.'],'c','classroom 后面有名词，前面用 their。','their + classroom。'),q('b10','This lunch box belongs to you. It is ___.',['your','you','yours','our'],'c','belongs to you 对应名物代 yours。','yours = your lunch box。'),q('b11','Our team won the game. The prize is ___.',['our','ours','us','we'],'b','prize 后没有名词，表示“我们的奖品”用 ours。','ours。'),q('b12','找出正确句子：',['She helps he.','Her helps him.','She helps him.','Hers helps his.'],'c','She 作主语，him 作 helps 的对象。','She helps him。') ]}
+];
+function q(id,prompt,options,answer,why,rule){return{id,prompt,options:options.map((text,i)=>({id:String.fromCharCode(97+i),text})),answer,why,rule}}
+const state={bridge:JSON.parse(JSON.stringify(demoBridge)),studentId:'preview-a',classId:'preview',profile:null,levelIndex:null,questions:[],questionIndex:0,locked:false,correct:0,score:0,combo:0,maxCombo:0,wrong:[],sessionId:'',sessionSig:'',timerId:null,deadline:0,lastTick:16,soundOn:localStorage.getItem('pronounQuestSound')!=='off',autoId:null};
+const $=id=>document.getElementById(id); const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function hashSeed(text){let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rng(seed){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(list,random=Math.random){const a=list.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function randomToken(){try{return crypto.getRandomValues(new Uint32Array(2)).join('-')}catch(e){return String(Date.now())+'-'+String(Math.random())}}
+function storageKey(){return 'pronounQuestProfile:'+state.studentId}
+function emptyProfile(){return{unlocked:1,stars:{},best:{},done:{},totalCorrect:0,totalQuestions:0,errorCounts:{},recentQuestionIds:[],sessionHistory:[]}}
+function loadProfile(){let p=emptyProfile();try{const saved=JSON.parse(localStorage.getItem(storageKey())||'null');if(saved)p=Object.assign(p,saved)}catch(e){};state.profile=p}
+function saveProfile(){try{localStorage.setItem(storageKey(),JSON.stringify(state.profile))}catch(e){}}
+function send(message){try{if(window.parent&&window.parent!==window)window.parent.postMessage(message,'*')}catch(e){}}
+function requestBridgeData(){send({type:'pronouns:requestData'})}
+function applyBridgeData(payload){const data=payload||{};state.bridge={classes:Array.isArray(data.classes)&&data.classes.length?data.classes:demoBridge.classes,currentClassId:data.currentClassId||demoBridge.currentClassId,students:Array.isArray(data.students)&&data.students.length?data.students:demoBridge.students};if(!state.bridge.students.some(s=>s.id===state.studentId)){state.studentId=state.bridge.students[0]?.id||''}loadProfile();renderSelectors();renderMap()}
+function renderSelectors(){const cs=$('classSelect'),ss=$('studentSelect');cs.innerHTML=(state.bridge.classes||[]).map(c=>\`<option value="\${esc(c.id)}">\${esc(c.name)}</option>\`).join('')||'<option value="preview">独立预览班</option>';cs.value=state.bridge.currentClassId||state.classId||'preview';ss.innerHTML='<option value="">请选择学生</option>'+(state.bridge.students||[]).map(s=>\`<option value="\${esc(s.id)}">\${esc((s.avatar?s.avatar+' ':'')+s.name)}</option>\`).join('');ss.value=state.studentId||'';const ready=!!state.studentId;$('bridgeHint').textContent=ready?(state.bridge.students.some(s=>s.id===state.studentId)?'已准备好，可以选择任意已解锁关卡。':'请选择本轮学生。'):'请选择本轮学生。';$('bridgeHint').classList.toggle('ready',ready);$('startBtn').disabled=!ready}
+function currentStudent(){return(state.bridge.students||[]).find(s=>s.id===state.studentId)||null}
+function renderMap(){loadProfile();$('mapCard').style.display='block';$('playCard').classList.remove('active');$('resultCard').classList.remove('active');const unlocked=Math.min(LEVELS.length,Math.max(1,Number(state.profile.unlocked)||1));$('unlockText').textContent=\`\${currentStudent()?.name||'体验学生'}：已解锁 \${unlocked} / \${LEVELS.length} 关 · 达到 60% 解锁下一关\`;$('levels').innerHTML=LEVELS.map((level,i)=>{const n=i+1,locked=n>unlocked,stars=Number(state.profile.stars[n]||0);return\`<button type="button" class="level-card \${locked?'locked':''}" \${locked?'disabled':''} data-level="\${i}">\${locked?'<span class="lock">🔒</span>':''}<span class="level-icon">\${level.icon}</span><strong>Level \${n} · \${level.title}\${level.boss?' 👑':''}</strong><small>\${level.subtitle}</small><div class="level-stars">\${[1,2,3].map(x=>\`<i class="\${stars>=x?'on':''}">⭐</i>\`).join('')}</div></button>\`}).join('');document.querySelectorAll('[data-level]').forEach(b=>b.addEventListener('click',()=>startLevel(Number(b.dataset.level))))}
+function readGlobalSessionHistory(){try{const saved=JSON.parse(localStorage.getItem('pronounQuestSessionHistory')||'[]');return Array.isArray(saved)?saved:[]}catch(e){return[]}}
+function writeGlobalSessionHistory(items){try{localStorage.setItem('pronounQuestSessionHistory',JSON.stringify(items.slice(-80)))}catch(e){}}
+function makeSession(levelIndex){const level=LEVELS[levelIndex];const recent=new Set(state.profile.recentQuestionIds||[]);let candidates=level.questions.filter(qi=>!recent.has(qi.id));if(candidates.length<QUESTION_COUNT)candidates=level.questions.slice();const history=new Set([...(state.profile.sessionHistory||[]),...readGlobalSessionHistory()]);let built=null;for(let attempt=0;attempt<30;attempt++){const seed=hashSeed(state.studentId+'|'+levelIndex+'|'+randomToken()+'|'+attempt);const r=rng(seed);const selected=shuffle(candidates,r).slice(0,QUESTION_COUNT);const ids=selected.map(qi=>qi.id);const optionOrders=selected.map(qi=>shuffle(qi.options,r).map(o=>o.id).join('')).join('|');const sig=ids.join(',')+'::'+optionOrders;if(!history.has(sig)){built={selected,seed,sig};break}}if(!built){const seed=hashSeed(state.studentId+'|'+levelIndex+'|'+randomToken());built={selected:shuffle(level.questions,rng(seed)).slice(0,QUESTION_COUNT),seed,sig:randomToken()}}state.questions=built.selected;state.sessionSig=built.sig;state.sessionId=randomToken();state.profile.sessionHistory=[...(state.profile.sessionHistory||[]),built.sig].slice(-40);state.profile.recentQuestionIds=[...(state.profile.recentQuestionIds||[]),...built.selected.map(qi=>qi.id)].slice(-30);writeGlobalSessionHistory([...readGlobalSessionHistory(),built.sig]);saveProfile()}
+function optionOrder(question,questionIndex){const seed=hashSeed(state.sessionId+'|'+question.id+'|'+questionIndex+'|options');return shuffle(question.options,rng(seed))}
+function startLevel(index){if(!state.studentId){$('bridgeHint').textContent='请先选择一名学生。';return}loadProfile();if(index+1>state.profile.unlocked)return;clearTimer();clearTimeout(state.autoId);state.levelIndex=index;state.questionIndex=0;state.correct=0;state.score=0;state.combo=0;state.maxCombo=0;state.wrong=[];state.locked=false;makeSession(index);$('mapCard').style.display='none';$('setupCard').style.display='none';$('resultCard').classList.remove('active');$('playCard').classList.add('active');renderQuestion()}
+function renderQuestion(){const level=LEVELS[state.levelIndex],question=state.questions[state.questionIndex];if(!question)return finishLevel();state.locked=false;clearTimeout(state.autoId);$('levelTitle').textContent=\`\${level.icon} Level \${state.levelIndex+1} · \${level.title}\`;$('levelSubtitle').textContent=level.subtitle;$('questionCount').textContent=\`\${state.questionIndex+1} / \${QUESTION_COUNT}\`;$('progressBar').style.width=(state.questionIndex/QUESTION_COUNT*100)+'%';$('questionTag').textContent=level.tag;$('question').innerHTML=esc(question.prompt).replace('___','<span class="blank">?</span>');$('questionNote').textContent=levelIndexNote(state.levelIndex);$('feedback').className='feedback';$('feedback').innerHTML='';$('nextRow').innerHTML='';const order=optionOrder(question,state.questionIndex);$('options').innerHTML=order.map(o=>\`<button type="button" class="option-btn" data-option="\${esc(o.id)}">\${esc(o.text)}</button>\`).join('');document.querySelectorAll('.option-btn').forEach(btn=>btn.addEventListener('click',()=>handleAnswer(question,btn.dataset.option,btn)));startTimer()}
+function levelIndexNote(index){return['主语通常在动词前','动词或介词后看宾格','后面有名词才用形物代','后面没有名词用名物代','先看位置，再看词义','把规则用到真实对话中'][index]}
+function startTimer(){clearTimer();state.deadline=performance.now()+QUESTION_TIME*1000;state.lastTick=16;paintTimer();state.timerId=setInterval(()=>{const left=Math.max(0,(state.deadline-performance.now())/1000);paintTimer(left);const second=Math.ceil(left);if(second!==state.lastTick&&second<=5&&second>0){playSound('tick');state.lastTick=second}if(left<=0){clearTimer();if(!state.locked)handleAnswer(state.questions[state.questionIndex],null,null,true)}},80)}
+function clearTimer(){if(state.timerId){clearInterval(state.timerId);state.timerId=null}if(state.autoId){clearTimeout(state.autoId);state.autoId=null}}
+function paintTimer(left=QUESTION_TIME){const ratio=Math.max(0,Math.min(1,left/QUESTION_TIME));const ring=$('timerRing');ring.style.setProperty('--ratio',ratio);ring.classList.toggle('warn',left<=9&&left>4);ring.classList.toggle('urgent',left<=4);$('timerNumber').textContent=Math.ceil(left)}
+function handleAnswer(question,choiceId,button,timeout=false){if(state.locked)return;state.locked=true;clearTimer();const correct=!timeout&&choiceId===question.answer;const correctOption=question.options.find(o=>o.id===question.answer);const chosen=choiceId?question.options.find(o=>o.id===choiceId):null;document.querySelectorAll('.option-btn').forEach(btn=>{btn.disabled=true;if(btn.dataset.option===question.answer)btn.classList.add('correct');else if(choiceId&&btn.dataset.option===choiceId&&!correct)btn.classList.add('wrong');else if(btn.dataset.option!==question.answer)btn.classList.add('dim')});if(correct){state.correct++;state.combo++;state.maxCombo=Math.max(state.maxCombo,state.combo);const gain=10+Math.min(state.combo,5)*2;state.score+=gain;showFeedback(true,\`✅ 选得好！\${correctOption.text}\`,question.why,question.rule);playSound(state.combo>=3?'combo':'right');autoNext()}else{state.combo=0;const label=timeout?'⏱ 时间到啦！':'💡 再看一眼位置';const chosenText=chosen?\` 你选了 \${chosen.text}。\`:'';state.wrong.push({id:question.id,prompt:question.prompt,answer:correctOption.text,rule:question.rule});state.profile.errorCounts[errorKey(question)]=(state.profile.errorCounts[errorKey(question)]||0)+1;showFeedback(false,\`\${label} 正确答案是 \${correctOption.text}。\${chosenText}\`,question.why,question.rule);playSound(timeout?'timeup':'wrong');showNextButton(false)}}
+function errorKey(question){const id=question.id||'';if(/^s/.test(id))return'主格与其他形式混淆';if(/^o/.test(id))return'宾格与其他形式混淆';if(/^a/.test(id))return'you/your 或形物代';if(/^p/.test(id))return'your/yours 或名物代';if(/^m/.test(id))return'四类代词综合';return'情境综合'}
+function showFeedback(ok,title,why,rule){const box=$('feedback');box.className='feedback show '+(ok?'good':'bad');box.innerHTML=\`<b>\${esc(title)}</b><span class="rule">\${esc(why)} \${esc(rule)}</span>\`}
+function autoNext(){const bar=document.createElement('div');bar.className='auto-bar';bar.innerHTML='<i></i>';const btn=document.createElement('button');btn.type='button';btn.className='soft-btn';btn.textContent='⏸ 暂停自动切题';btn.addEventListener('click',()=>{clearTimeout(state.autoId);state.autoId=null;showNextButton(true)});$('nextRow').append(bar,btn);requestAnimationFrame(()=>bar.firstElementChild.style.width='100%');state.autoId=setTimeout(()=>advanceQuestion(),1000)}
+function showNextButton(paused){$('nextRow').innerHTML=\`<span class="wait-hint">\${paused?'老师讲解中 · 讲完后继续':'看懂解析后再继续'}</span><button type="button" class="next-btn">\${state.questionIndex+1>=QUESTION_COUNT?'查看成绩 →':'下一题 →'}</button>\`;$('nextRow').querySelector('.next-btn').addEventListener('click',advanceQuestion)}
+function advanceQuestion(){clearTimeout(state.autoId);state.autoId=null;state.questionIndex++;renderQuestion()}
+function finishLevel(){clearTimer();const total=QUESTION_COUNT,accuracy=Math.round(state.correct/total*100),stars=accuracy>=90?3:accuracy>=70?2:accuracy>=50?1:0;const n=state.levelIndex+1;state.profile.stars[n]=Math.max(Number(state.profile.stars[n]||0),stars);state.profile.best[n]=Math.max(Number(state.profile.best[n]||0),accuracy);state.profile.done[n]=Number(state.profile.done[n]||0)+1;state.profile.totalCorrect+=state.correct;state.profile.totalQuestions+=total;let unlocked=false;if(accuracy>=60&&n===state.profile.unlocked&&state.profile.unlocked<LEVELS.length){state.profile.unlocked++;unlocked=true}saveProfile();if(state.score>0)send({type:'pronouns:addScore',studentId:state.studentId,score:state.score,level:'Level '+n});if(state.wrong.length)send({type:'pronouns:addWrongItems',studentId:state.studentId,level:'Level '+n,items:state.wrong});$('playCard').classList.remove('active');$('resultCard').classList.add('active');$('resultIcon').textContent=stars>=2?'🎉':stars===1?'💪':'🌱';$('resultTitle').textContent=stars>=3?'完美通关！':stars>=2?'很棒，继续前进！':'再练一轮会更稳！';$('resultText').textContent=\`\${LEVELS[state.levelIndex].title} · \${unlocked?'已解锁下一关！':accuracy<60?'达到 60% 就能解锁下一关。':'本关已完成。'}\`;$('resultScore').textContent='⭐ '+state.score;$('resultCorrect').textContent=state.correct+'/'+total;$('resultAccuracy').textContent=accuracy+'%';$('resultCombo').textContent=state.maxCombo;$('resultStars').textContent=stars+'/3';const wrongBox=$('wrongBox');if(state.wrong.length){wrongBox.hidden=false;$('wrongList').innerHTML=state.wrong.map(w=>\`<li>\${esc(w.prompt).replace('___','____')} → <b>\${esc(w.answer)}</b></li>\`).join('')}else wrongBox.hidden=true;playSound(stars>=2?'level':'wrong');if(stars>=2)confetti()}
+function goMap(){clearTimer();clearTimeout(state.autoId);$('playCard').classList.remove('active');$('resultCard').classList.remove('active');$('setupCard').style.display='';$('mapCard').style.display='';renderMap()}
+function showReport(){loadProfile();const entries=[['主格与其他形式混淆',state.profile.errorCounts['主格与其他形式混淆']||0],['宾格与其他形式混淆',state.profile.errorCounts['宾格与其他形式混淆']||0],['you/your 或形物代',state.profile.errorCounts['you/your 或形物代']||0],['your/yours 或名物代',state.profile.errorCounts['your/yours 或名物代']||0],['四类代词综合',state.profile.errorCounts['四类代词综合']||0],['情境综合',state.profile.errorCounts['情境综合']||0]];const max=Math.max(1,...entries.map(x=>x[1]));$('modalHost').innerHTML=\`<div class="modal-mask" id="modalMask"><div class="modal"><h3>📊 \${esc(currentStudent()?.name||'体验学生')}的学习报告</h3><p>累计完成 \${state.profile.totalQuestions||0} 题，答对 \${state.profile.totalCorrect||0} 题。下面是错题类型记录。</p>\${entries.map(x=>\`<div class="report-row"><span class="label">\${esc(x[0])}</span><span class="report-bar"><i style="width:\${x[1]/max*100}%"></i></span><span class="value">\${x[1]}次</span></div>\`).join('')}<div style="text-align:center;margin-top:20px"><button class="primary-btn" type="button" id="closeReport">返回课堂</button></div></div></div>\`;$('closeReport').addEventListener('click',closeModal);$('modalMask').addEventListener('click',e=>{if(e.target.id==='modalMask')closeModal()})}
+function closeModal(){$('modalHost').innerHTML=''}
+function confetti(){const colors=['#16a69b','#56a9f8','#ffc44d','#ff9d72','#8d7be8','#61c790'];for(let i=0;i<36;i++){const el=document.createElement('i');el.textContent='✦';el.style.cssText=\`position:fixed;z-index:30;left:\${Math.random()*100}vw;top:-20px;color:\${colors[i%colors.length]};font-size:\${12+Math.random()*16}px;animation:confettiFall \${1.3+Math.random()*1.2}s ease-out \${Math.random()*.5}s forwards;pointer-events:none\`;document.body.appendChild(el);setTimeout(()=>el.remove(),3000)}}
+const confettiStyle=document.createElement('style');confettiStyle.textContent='@keyframes confettiFall{to{transform:translateY(105vh) rotate(420deg);opacity:0}}';document.head.appendChild(confettiStyle);
+const AudioEngine=(()=>{let ctx=null;function beep(freq,duration=.13,volume=.045){if(!state.soundOn)return;try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;ctx=ctx||new C();if(ctx.state==='suspended')ctx.resume();const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime;o.type='sine';o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(freq*.72,t+duration);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume,t+.015);g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+duration+.02)}catch(e){}}return{play(kind){const notes={click:660,right:880,wrong:300,timeup:460,level:660,combo:1047,tick:760};beep(notes[kind]||660,kind==='level'?.28:.13,kind==='level'?.065:.045)}}})();
+function playSound(kind){AudioEngine.play(kind)}
+function speak(text){if(!state.soundOn||!('speechSynthesis'in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(text).replace(/___/g,' '));u.lang='en-GB';u.rate=.88;u.pitch=1.04;speechSynthesis.speak(u)}catch(e){}}
+function resetToSetup(){goMap();$('setupCard').style.display='';}
+$('startBtn').addEventListener('click',()=>{if(!state.studentId){renderSelectors();return}renderMap()});$('mapBtn').addEventListener('click',goMap);$('resultMapBtn').addEventListener('click',goMap);$('retryBtn').addEventListener('click',()=>startLevel(state.levelIndex));$('reportBtn').addEventListener('click',showReport);$('soundBtn').addEventListener('click',()=>{state.soundOn=!state.soundOn;localStorage.setItem('pronounQuestSound',state.soundOn?'on':'off');$('soundBtn').textContent=state.soundOn?'🔊':'🔇';if(state.soundOn)playSound('click')});$('studentSelect').addEventListener('change',e=>{state.studentId=e.target.value||'';loadProfile();renderSelectors();renderMap()});$('classSelect').addEventListener('change',e=>{state.classId=e.target.value;send({type:'pronouns:switchClass',classId:e.target.value})});
+window.addEventListener('message',e=>{const msg=e&&e.data;if(!msg||typeof msg!=='object')return;if(msg.type==='pronouns:data')applyBridgeData(msg.payload)});
+renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(requestBridgeData,600);
+<\/script>
+</body>
+</html>
+
+
+`;
+
+        function openPronounsModal() {
+            const modal = document.getElementById('pronouns-modal');
+            const iframe = document.getElementById('pronouns-iframe');
+            if (!modal || !iframe) return;
+            iframe.onload = function() {
+                try {
+                    iframe.contentWindow.postMessage({ type: 'pronouns:data', payload: getPronounsBridgeData() }, '*');
+                } catch (e) {}
+            };
+            iframe.removeAttribute('src');
+            iframe.srcdoc = '';
+            iframe.srcdoc = window._pronounsHtml || '';
+            modal.classList.add('show');
+        }
+
         function openComparativesModal() {
             const modal = document.getElementById('comparatives-modal');
             const iframe = document.getElementById('comparatives-iframe');
@@ -7443,6 +7705,10 @@ document.addEventListener("keydown", e => {
             }
             if(id === 'comparatives-modal') {
                 const f = document.getElementById('comparatives-iframe');
+                if(f) { f.onload = null; f.removeAttribute('src'); f.srcdoc = ''; }
+            }
+            if(id === 'pronouns-modal') {
+                const f = document.getElementById('pronouns-iframe');
                 if(f) { f.onload = null; f.removeAttribute('src'); f.srcdoc = ''; }
             }
         }
@@ -8946,7 +9212,8 @@ document.addEventListener("keydown", e => {
                     ['quantity-iframe', {type:'quantity:data', payload:getQuantityBridgeData()}],
                     ['tense-mix-iframe', {type:'tensemix:data', payload:getTenseMixBridgeData()}],
                     ['too-enough-iframe', {type:'tooenough:data', payload:getTooEnoughBridgeData()}],
-                    ['comparatives-iframe', {type:'comparatives:data', payload:getComparativesBridgeData()}]
+                    ['comparatives-iframe', {type:'comparatives:data', payload:getComparativesBridgeData()}],
+                    ['pronouns-iframe', {type:'pronouns:data', payload:getPronounsBridgeData()}]
                 ];
                 messages.forEach(([frameId, message]) => { const frame = document.getElementById(frameId); if (frame && frame.contentWindow) frame.contentWindow.postMessage(message, '*'); });
             } catch (e) {}
@@ -9882,6 +10149,7 @@ document.addEventListener("keydown", e => {
     <div class="modal-overlay tool-modal" id="quantity-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('quantity-modal')">✕</button> <iframe id="quantity-iframe" class="tool-iframe" title="数量与名词闯关" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="too-enough-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('too-enough-modal')">✕</button> <iframe id="too-enough-iframe" class="tool-iframe" title="too / enough 帽子店挑战" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     <div class="modal-overlay tool-modal" id="comparatives-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('comparatives-modal')">✕</button> <iframe id="comparatives-iframe" class="tool-iframe" title="形容词比较级最高级" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
+    <div class="modal-overlay tool-modal" id="pronouns-modal"> <div class="modal-content"> <button class="tool-close-btn" onclick="closeModal('pronouns-modal')">✕</button> <iframe id="pronouns-iframe" class="tool-iframe" title="代词冒险" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"></iframe> </div> </div>
     
     <div class="modal-overlay attendance-fullscreen-modal" id="attendance-modal-container" data-attendance-theme="peach">
         <div class="attendance-shell" role="dialog" aria-modal="true" aria-label="排课与签到">
