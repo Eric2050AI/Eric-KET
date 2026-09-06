@@ -8740,7 +8740,7 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             const rawLogs = Array.isArray(item.logs) ? item.logs : [];
             const embeddedGroups = reviewGroupsFromLogs(rawLogs);
             return {
-                name: String(item.name || fallbackName || '未命名班级'),
+                name: String(item.name || fallbackName || '默认班级'),
                 students: Array.isArray(item.students) ? item.students.map(reviewNormalizeStudent) : [],
                 groups: (Array.isArray(item.groups) ? item.groups : embeddedGroups).map(reviewNormalizeGroup),
                 logs: reviewVisibleLogs(rawLogs)
@@ -8750,12 +8750,22 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
         function reviewNormalizeAllClasses() {
             const normalized = {};
             if (allClasses && typeof allClasses === 'object' && !Array.isArray(allClasses)) {
-                Object.keys(allClasses).forEach(id => { normalized[String(id)] = reviewNormalizeClass(allClasses[id]); });
+                Object.keys(allClasses).forEach(id => {
+                    const normalizedClass = reviewNormalizeClass(allClasses[id]);
+                    if (normalizedClass.name.trim() === '未命名班级') {
+                        if (!normalizedClass.students.length) {
+                            if (typeof markClassAsDeleted === 'function') markClassAsDeleted(String(id));
+                            return;
+                        }
+                        normalizedClass.name = '默认班级';
+                    }
+                    normalized[String(id)] = normalizedClass;
+                });
             }
             allClasses = normalized;
             if (!Object.keys(allClasses).length) {
                 const id = 'class_' + Date.now();
-                allClasses[id] = reviewNormalizeClass({ name: '未命名班级' });
+                allClasses[id] = reviewNormalizeClass({ name: '默认班级' });
             }
             if (!currentClassId || !allClasses[currentClassId]) currentClassId = Object.keys(allClasses)[0];
         }
@@ -9050,21 +9060,87 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
                 grouped.forEach((item, column) => item.members.forEach((student, row) => {
                     items.push({ student, row: row + 1, column: column + 1 });
                 }));
-                return { items, rows: Math.max(3, rows), explicit: true };
+                return { items, rows: Math.max(3, rows), columns: grouped.length, explicit: true };
             }
 
             const ordered = grouped.flatMap(item => item.members).concat(ungrouped);
             return {
                 items: ordered.map(student => ({ student })),
                 rows: Math.max(3, Math.ceil(ordered.length / 3)),
+                columns: 3,
                 explicit: false
             };
+        }
+
+        let draggedStudentId = '';
+        let suppressStudentCardClickUntil = 0;
+
+        function clearStudentDragStyles() {
+            document.querySelectorAll('.student-card.dragging,.student-card.drag-before,.student-card.drag-after').forEach(card => {
+                card.classList.remove('dragging', 'drag-before', 'drag-after');
+            });
+        }
+
+        function canReorderStudents(dragId, targetId) {
+            const students = getStudents();
+            const dragged = students.find(student => student.id === dragId);
+            const target = students.find(student => student.id === targetId);
+            return Boolean(dragged && target && dragged.id !== target.id && dragged.groupId && dragged.groupId === target.groupId);
+        }
+
+        function reorderStudentWithinGroup(dragId, targetId, insertBefore) {
+            if (!canReorderStudents(dragId, targetId)) return;
+            saveStateToHistory();
+            const students = getStudents();
+            const fromIndex = students.findIndex(student => student.id === dragId);
+            if (fromIndex < 0) return;
+            const [moved] = students.splice(fromIndex, 1);
+            let targetIndex = students.findIndex(student => student.id === targetId);
+            if (targetIndex < 0) return;
+            if (!insertBefore) targetIndex += 1;
+            students.splice(Math.min(targetIndex, students.length), 0, moved);
+            saveData();
+        }
+
+        function handleStudentDragStart(student, event) {
+            draggedStudentId = student.id;
+            suppressStudentCardClickUntil = Date.now() + 700;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', student.id);
+            event.currentTarget.classList.add('dragging');
+        }
+
+        function handleStudentDragOver(student, event) {
+            if (!draggedStudentId || !canReorderStudents(draggedStudentId, student.id)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            clearStudentDragStyles();
+            const card = event.currentTarget;
+            card.classList.add(event.clientY < card.getBoundingClientRect().top + card.offsetHeight / 2 ? 'drag-before' : 'drag-after');
+        }
+
+        function handleStudentDrop(student, event) {
+            event.preventDefault();
+            if (!draggedStudentId || !canReorderStudents(draggedStudentId, student.id)) return;
+            const card = event.currentTarget;
+            const insertBefore = event.clientY < card.getBoundingClientRect().top + card.offsetHeight / 2;
+            reorderStudentWithinGroup(draggedStudentId, student.id, insertBefore);
+            draggedStudentId = '';
+            clearStudentDragStyles();
+        }
+
+        function handleStudentDragEnd() {
+            draggedStudentId = '';
+            suppressStudentCardClickUntil = Date.now() + 700;
+            clearStudentDragStyles();
         }
 
         function renderGrid() {
             const grid = document.getElementById('students-grid');
             if (!grid) return;
             grid.replaceChildren();
+            grid.classList.remove('grouped-grid');
+            grid.style.setProperty('--student-grid-columns', '3');
             const students = getActiveStudents();
             if (!Array.isArray(students) || !students.length) {
                 const empty = document.createElement('div');
@@ -9075,10 +9151,18 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             }
             const layout = getGroupedGridItems(students);
             grid.style.setProperty('--student-grid-rows', String(layout.rows));
+            grid.style.setProperty('--student-grid-columns', String(layout.columns || 3));
+            grid.classList.toggle('grouped-grid', Boolean(layout.explicit));
             layout.items.forEach(({ student, row, column }) => {
                 const card = document.createElement('div');
                 card.className = 'student-card';
-                card.onclick = () => handleCardClick(student.id);
+                card.draggable = Boolean(student.groupId);
+                card.title = student.groupId ? '按住并拖动可调整同组内顺序' : '';
+                card.onclick = () => { if (Date.now() < suppressStudentCardClickUntil) return; handleCardClick(student.id); };
+                card.ondragstart = event => handleStudentDragStart(student, event);
+                card.ondragover = event => handleStudentDragOver(student, event);
+                card.ondrop = event => handleStudentDrop(student, event);
+                card.ondragend = handleStudentDragEnd;
                 if (layout.explicit) {
                     card.style.gridRow = String(row);
                     card.style.gridColumn = String(column);
@@ -9107,10 +9191,9 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
                 const name = document.createElement('div'); name.className = 'card-name'; name.textContent = student.name;
                 left.append(avatar, name);
                 const right = document.createElement('div'); right.className = 'card-right';
-                const score = document.createElement('div'); score.className = 'card-score'; score.id = 'score-' + student.id; score.textContent = String(student.score);
-                const custom = document.createElement('button'); custom.className = 'custom-btn'; custom.type = 'button'; custom.textContent = '自定义';
-                custom.onclick = event => openCustomNumpad(student.id, event);
-                right.append(score, custom);
+                const score = document.createElement('div'); score.className = 'card-score score-clickable'; score.id = 'score-' + student.id; score.textContent = String(student.score); score.title = '点击积分进行加分或减分';
+                score.onclick = event => openCustomNumpad(student.id, event);
+                right.append(score);
                 card.append(del, arch, groupBadge, left, right);
                 grid.appendChild(card);
             });
@@ -9131,10 +9214,17 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
                 const avatar = document.createElement('div'); avatar.className = 'rank-avatar'; avatar.textContent = student.avatar;
                 const name = document.createElement('div'); name.className = 'rank-name'; name.textContent = student.name;
                 const group = getStudentGroup(student);
-                const groupLabel = document.createElement('div'); groupLabel.className = 'rank-group'; groupLabel.textContent = group ? group.name : '未分组';
-                if (group) groupLabel.style.color = group.color;
                 const score = document.createElement('div'); score.className = 'rank-score'; score.textContent = String(student.score);
-                item.append(medal, avatar, name, groupLabel, score); list.appendChild(item);
+                item.append(medal, avatar, name);
+                if (group) {
+                    const groupLabel = document.createElement('div');
+                    groupLabel.className = 'rank-group';
+                    groupLabel.textContent = group.name;
+                    groupLabel.style.color = group.color;
+                    item.appendChild(groupLabel);
+                }
+                item.appendChild(score);
+                list.appendChild(item);
             });
         }
 
@@ -9516,25 +9606,30 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
         @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.06);box-shadow:0 0 18px var(--btn-gold)}100%{transform:scale(1)}}
         .batch-active{animation:pulse 1s infinite;border-color:#ff0!important;opacity:1!important}
         .grid-container{flex:1;background:var(--card-bg);border-radius:var(--border-radius);padding:12px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.05)}
-        .students-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(var(--student-grid-rows,3),minmax(0,1fr));gap:12px;height:100%;min-height:300px}
-        .student-card{background:var(--bg-color);border:2px solid var(--primary-color);border-radius:var(--border-radius);display:flex;padding:10px;position:relative;box-shadow:0 4px 8px rgba(0,0,0,0.05);transition:all 0.3s cubic-bezier(0.25,0.8,0.25,1);cursor:pointer;animation:fadeIn 0.4s ease-out}
-        .student-card.has-group{border-color:var(--student-group-color,var(--primary-color))}
-        .student-group-badge{position:absolute;top:8px;left:10px;max-width:42%;padding:3px 9px;border-radius:999px;color:#333;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
-        .student-group-badge.unassigned{background:rgba(255,255,255,0.72);color:var(--text-light);border:1px dashed #ccc}
+        .students-grid{display:grid;grid-template-columns:repeat(var(--student-grid-columns,3),minmax(0,1fr));grid-template-rows:repeat(var(--student-grid-rows,3),minmax(0,1fr));gap:12px;height:100%;min-height:300px}
+        .students-grid.grouped-grid{gap:16px 20px}
+        .student-card{background:var(--bg-color);border:2px solid var(--primary-color);border-radius:var(--border-radius);display:flex;padding:14px 16px 18px;position:relative;box-shadow:0 4px 8px rgba(0,0,0,0.05);transition:all 0.3s cubic-bezier(0.25,0.8,0.25,1);cursor:pointer;animation:fadeIn 0.4s ease-out}
+        .student-card[draggable="true"]{cursor:grab;touch-action:none}
+        .student-card.dragging{opacity:.45;cursor:grabbing;transform:scale(.98)}
+        .student-card.drag-before{box-shadow:inset 0 5px 0 #5aa9e6,0 4px 8px rgba(0,0,0,0.08)}
+        .student-card.drag-after{box-shadow:inset 0 -5px 0 #5aa9e6,0 4px 8px rgba(0,0,0,0.08)}
+        .student-card.has-group{border-color:var(--student-group-color,var(--primary-color));border-width:3px;box-shadow:inset 0 4px 0 var(--student-group-color,var(--primary-color)),0 4px 8px rgba(0,0,0,0.06)}
+        .student-group-badge{position:static;align-self:center;flex:0 0 auto;max-width:22%;margin-right:4px;padding:5px 11px;border-radius:999px;color:#333;font-size:14px;font-weight:bold;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+        .student-group-badge.unassigned{display:none}
         .student-card:hover{box-shadow:0 4px 10px rgba(0,0,0,0.08)}
         @keyframes fadeIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
         .card-del-btn{position:absolute;top:-8px;right:-8px;width:24px;height:24px;background:var(--btn-red);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.25);z-index:10;display:none}
         .student-card:hover .card-del-btn{display:flex}
         .card-arch-btn{position:absolute;top:-8px;right:20px;width:24px;height:24px;background:#fff;border:2px solid var(--primary-color);border-radius:50%;display:none;align-items:center;justify-content:center;font-size:12px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:2}
         .student-card:hover .card-arch-btn{display:flex}
-        .card-left{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
-        .card-avatar{font-size:46px;line-height:1;margin-bottom:4px}
-        .card-name{font-size:16px;font-weight:bold;text-align:center;word-break:break-all}
-        .card-right{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-left:8px}
-        .card-score{font-size:36px;font-weight:bold;color:var(--primary-dark);margin-bottom:8px;transition:color 0.3s,transform 0.3s}
+        .card-left{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:12px;padding:7px 10px 5px;min-width:0}
+        .card-avatar{font-size:42px;line-height:1;margin-bottom:0;flex-shrink:0}
+        .card-name{font-size:18px;font-weight:bold;line-height:1.35;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;min-width:0;padding:0 3px}
+        .card-right{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 8px 5px;min-width:0}
+        .card-score{font-size:42px;font-weight:bold;color:var(--primary-dark);margin-bottom:0;transition:color 0.3s,transform 0.3s}
+        .card-score.score-clickable{cursor:pointer;user-select:none;padding:10px 24px;border-radius:16px;transition:color 0.2s,transform 0.2s,background 0.2s}
+        .card-score.score-clickable:hover{background:rgba(255,190,110,0.14);transform:scale(1.04)}
         .card-score.anim-up{color:#4CAF50;transform:scale(1.25)} .card-score.anim-down{color:#F44336;transform:scale(0.8)}
-        .custom-btn{background:var(--primary-color);padding:5px 14px;font-size:14px;width:100%}
-        .student-card .custom-btn{width:70%;min-width:96px}
         .sidebar-title-container{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px}
         .sidebar-title{font-size:20px;font-weight:bold;color:var(--primary-dark)}
         .toggle-btn{font-size:12px;cursor:pointer;color:var(--text-light);text-decoration:underline;background:none;box-shadow:none;padding:4px 8px;white-space:nowrap}
