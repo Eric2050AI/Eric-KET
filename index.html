@@ -8552,7 +8552,6 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
 
         function openDictationModal() {
             const iframe = document.getElementById('dictation-iframe');
-            iframe.srcdoc = '';
             iframe.srcdoc = getDictationHTML();
             document.getElementById('dictation-modal').classList.add('show');
             try { iframe.contentWindow.postMessage({ type: 'dictation:refresh' }, '*'); } catch(e) {}
@@ -8565,7 +8564,6 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
         function openListenChoiceModal() {
             const iframe = document.getElementById('listen-choice-iframe');
             const modal = document.getElementById('listen-choice-modal');
-            iframe.srcdoc = '';
             iframe.srcdoc = getListenChoiceHTML();
             modal.classList.add('show');
             try { iframe.contentWindow.postMessage({ type: 'listenchoice:refresh' }, '*'); } catch(e) {}
@@ -8577,7 +8575,6 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
 
         function openMatchGameModal() {
             const iframe = document.getElementById('match-iframe');
-            iframe.srcdoc = '';
             iframe.srcdoc = getMatchGameHTML();
             document.getElementById('match-modal').classList.add('show');
             try { iframe.contentWindow.postMessage({ type: 'matchgame:refresh' }, '*'); } catch(e) {}
