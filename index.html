@@ -518,9 +518,16 @@
             if(!historyStack.length){alert('没有可撤销的操作');return;}
             let p=historyStack.pop();
             if (p.allClasses) {
+                Object.keys(p.allClasses).forEach(id => {
+                    if (allClasses[id]) reviewMarkLogsDeleted(allClasses[id].logs, p.allClasses[id].logs);
+                });
                 allClasses = p.allClasses;
                 currentClassId = p.currentClassId || currentClassId;
                 saveAllClasses();
+                Object.keys(allClasses).forEach(id => {
+                    reviewMarkLocalChange(id);
+                    if (isCloudMode) syncCurrentClassToCloud(id, reviewLocalRevision);
+                });
                 renderGrid(); renderRanking(); renderGroupSummary(); updateClassTitle(); renderClassList();
                 return;
             }
@@ -778,7 +785,77 @@
                 }
             } catch (e) { console.warn('恢复词汇/签到数据失败:', e); }
         }
-        function importBackup(ev){ const file = ev.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e){ try{ const data = JSON.parse(e.target.result); if(data.allClasses && typeof data.allClasses === 'object' && Object.keys(data.allClasses).length > 0){ const classCount = Object.keys(data.allClasses).length; if(!confirm(`📂 检测到全量备份（${classCount} 个班级）\n备份时间：${data.exportTime||'未知'}\n\n确定用此备份覆盖当前所有班级数据吗？\n当前数据将被替换！`)) { ev.target.value = ''; return; } allClasses = JSON.parse(JSON.stringify(data.allClasses)); const ids = Object.keys(allClasses); if(ids.length > 0) { currentClassId = ids[0]; } else { const newId = 'class_' + Date.now(); allClasses[newId] = { name: '默认班级', students: [], logs: [] }; currentClassId = newId; } restoreBackupExtras(data); saveAllClasses(); renderGrid(); renderRanking(); updateClassTitle(); renderClassList(); alert('✅ 全量备份恢复成功！所有班级数据已还原。'); } else if(data.students && Array.isArray(data.students)){ const className = data.className || '已备份班级'; if(!confirm(`📂 旧版单班级备份\n备份时间：${data.exportTime||'未知'}\n班级：${className}\n${data.students.length} 名学生\n\n确定恢复至当前班级吗？\n（将覆盖当前班级的学生和日志）`)) { ev.target.value = ''; return; } getCurrentClass().students = data.students; getCurrentClass().logs = data.logs || []; saveData(); alert('✅ 单班级备份已恢复至当前班级。'); } else { alert('❌ 无法识别的备份文件格式。'); } }catch(e){ alert('❌ 文件读取失败，请确认是正确的备份文件。'); console.error(e); } ev.target.value = ''; }; reader.readAsText(file); }
+        function planScoreRestore(data, classes, selectedId) {
+            const changes = [];
+            let skipped = 0, unmatched = 0;
+            const score = value => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) && Number.isFinite(Number(value)) ? Number(value) : null;
+            let sources;
+            if (data && data.allClasses && typeof data.allClasses === 'object' && !Array.isArray(data.allClasses) && Object.keys(data.allClasses).length) {
+                sources = Object.entries(data.allClasses);
+            } else if (data && Array.isArray(data.students)) {
+                sources = [[selectedId, data]];
+            } else throw new Error('无法识别的备份文件格式');
+            sources.forEach(([classId, source]) => {
+                if (!source || !Array.isArray(source.students)) { unmatched++; return; }
+                const target = classes[classId];
+                if (!target || !Array.isArray(target.students)) { unmatched += source.students.length; return; }
+                const seen = new Set();
+                source.students.forEach(saved => {
+                    const matches = saved && saved.id ? target.students.filter(s => s && s.id === saved.id) : [];
+                    if (matches.length !== 1 || seen.has(saved.id)) { unmatched++; return; }
+                    seen.add(saved.id);
+                    const student = matches[0], before = score(student.score), after = score(saved.score);
+                    if (before === null || after === null) { unmatched++; return; }
+                    if (after > before) changes.push({ classId, studentId: student.id, name: student.name, className: target.name, before, after });
+                    else skipped++;
+                });
+            });
+            return { changes, skipped, unmatched };
+        }
+        function importBackup(ev) {
+            const file = ev.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    const plan = planScoreRestore(data, allClasses, currentClassId);
+                    if (!plan.changes.length) {
+                        alert('无需恢复：没有找到备份积分高于当前积分的学生。\n相同或更高：' + plan.skipped + ' 人；无法匹配或数据异常：' + plan.unmatched + ' 条。');
+                        return;
+                    }
+                    const details = plan.changes.map(c => c.className + ' · ' + c.name + '：' + c.before + ' → ' + c.after).join('\n');
+                    if (!confirm('仅恢复较高积分，共 ' + plan.changes.length + ' 人：\n\n' + details + '\n\n保留现有积分：' + plan.skipped + ' 人；无法匹配或数据异常：' + plan.unmatched + ' 条（跳过）。\n只更新这些学生的个人积分并新增恢复日志，现有日志、其他资料、词汇和签到保持不变。\n确定恢复吗？')) return;
+                    // 保留恢复前快照，以便导入操作也能撤销。
+                    historyStack.push({ allClasses: JSON.parse(JSON.stringify(allClasses)), currentClassId });
+                    if (historyStack.length > 50) historyStack.shift();
+                    const now = new Date();
+                    const date = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+                    const time = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2,'0')).join(':');
+                    const changedIds = new Set();
+                    plan.changes.forEach(change => {
+                        const cls = allClasses[change.classId];
+                        const student = cls.students.find(s => s.id === change.studentId);
+                        student.score = change.after;
+                        if (!Array.isArray(cls.logs)) cls.logs = [];
+                        cls.logs.unshift({ date, time, name: student.name, studentId: student.id, category: '备份积分恢复', delta: change.after - change.before, scoreAfter: change.after });
+                        changedIds.add(change.classId);
+                    });
+                    saveData();
+                    changedIds.forEach(id => {
+                        reviewMarkLocalChange(id);
+                        if (isCloudMode) syncCurrentClassToCloud(id, reviewLocalRevision);
+                    });
+                    renderClassList();
+                    alert('✅ 已恢复 ' + plan.changes.length + ' 名学生的较高积分。其余数据已保留。');
+                } catch (error) {
+                    console.error(error);
+                    alert('恢复失败：' + error.message);
+                } finally { ev.target.value = ''; }
+            };
+            reader.onerror = () => { ev.target.value = ''; alert('文件读取失败，请重试。'); };
+            reader.readAsText(file);
+        }
         function openClassModal(){ renderClassList(); renderArchivedList(); document.getElementById('new-class-name').value=''; document.getElementById('class-modal').classList.add('show'); }
         function renderClassList(){ let c=document.getElementById('class-list'); c.innerHTML=''; let ids=Object.keys(allClasses); if(!ids.length){ c.innerHTML='<div style="color:#999;text-align:center;">暂无班级</div>'; return; } ids.forEach(id=>{ let cls=allClasses[id], isActive=id===currentClassId; let item=document.createElement('div'); item.className='class-item'+(isActive?' active-class':''); item.innerHTML=`<div class="class-item-name" onclick="switchClass('${id}')">${isActive?'▶ ':''}${cls.name}</div><div class="class-item-count">${cls.students.length}人</div><div class="class-item-btns">${!isActive?`<button class="class-switch-btn" onclick="switchClass('${id}')">切换</button>`:'<span style="font-size:12px;color:var(--primary-dark);">当前</span>'}<button class="class-rename-btn" onclick="renameClass('${id}')">改名</button>${ids.length>1?`<button class="class-del-btn" onclick="deleteClass('${id}')">删除</button>`:''}</div>`; c.appendChild(item); }); }
         function createNewClass(){ let name = document.getElementById('new-class-name').value.trim(); if(!name){ alert('请输入名称'); return; } for (let id in allClasses) { if (allClasses[id].name === name) { alert(`班级"${name}"已存在，请勿重复创建。`); return; } } let id = 'class_' + Date.now(); allClasses[id] = { name, students: [], logs: [] }; currentClassId = id; historyStack = []; saveAllClasses(); saveData(); renderClassList(); }
@@ -9312,6 +9389,10 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             loadDeletedClassIds(); migrateLegacyVocabulary(); reviewLoadDeletedLogs(); reviewLoadSyncMeta(); updateUserBadge(); updateSyncStatus('ok');
             loadAllClassesFromStorage(); initEmojis(); renderPinnedGames(); renderGrid(); renderRanking(); renderGroupSummary(); updateClassTitle(); startClock();
             if (isCloudMode) loadCloudData().then(() => {
+                Object.keys(allClasses).forEach(id => {
+                    reviewMarkLocalChange(id);
+                    if (isCloudMode) syncCurrentClassToCloud(id, reviewLocalRevision);
+                });
                 renderGrid(); renderRanking(); renderGroupSummary(); updateClassTitle(); renderClassList();
                 const quantityFrame = document.getElementById('quantity-iframe');
                 if (quantityFrame && quantityFrame.contentWindow) {
