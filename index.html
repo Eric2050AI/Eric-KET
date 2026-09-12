@@ -1849,14 +1849,19 @@
     function onClassChange(classId) {
       if (!classId) return;
       _bridge.selectedStudentId = null;
+      updateStartButton();
       // 通知父页面切换班级
       window.parent.postMessage({ type: 'ketverb:switchClass', classId }, '*');
     }
 
     function onStudentSelect(studentId) {
       _bridge.selectedStudentId = studentId || null;
+      updateStartButton();
+    }
+
+    function updateStartButton() {
       const startBtn = document.getElementById('startBtn');
-      if (startBtn) startBtn.disabled = !studentId;
+      if (startBtn) startBtn.disabled = gameActive || !_bridge.selectedStudentId || !cards.length;
     }
 
     function applyBridgeData(payload) {
@@ -1865,7 +1870,7 @@
       _bridge.currentClassId = payload.currentClassId || null;
       _bridge.students = payload.students || [];
       // 如果父页面传来了云端词表，用它覆盖本地
-      if (payload.vocabulary && Array.isArray(payload.vocabulary) && payload.vocabulary.length >= 15) {
+      if (payload.vocabulary && Array.isArray(payload.vocabulary) && payload.vocabulary.length >= 15 && !gameActive && JSON.stringify(payload.vocabulary) !== JSON.stringify(currentWords)) {
         try {
           localStorage.setItem('ketVerbMatch_words_v1', JSON.stringify(payload.vocabulary));
           currentWords = payload.vocabulary.map(function(w){ return Object.assign({}, w); });
@@ -1903,23 +1908,14 @@
           const opt = document.createElement('option');
           opt.value = s.id;
           opt.textContent = s.avatar ? s.avatar + ' ' + s.name : s.name;
-          if (s.id === prevStu) opt.selected = true;
+          if (String(s.id) === String(prevStu)) opt.selected = true;
           stuSelect.appendChild(opt);
         });
         if (stuSelect.value) _bridge.selectedStudentId = stuSelect.value;
         else _bridge.selectedStudentId = null;
-        const startBtn = document.getElementById('startBtn');
-        if (startBtn) startBtn.disabled = !_bridge.selectedStudentId;
+        updateStartButton();
       }
     }
-
-    window.addEventListener('message', function(ev) {
-      const msg = ev && ev.data;
-      if (!msg || typeof msg !== 'object') return;
-      if (msg.type === 'ketverb:data') {
-        applyBridgeData(msg.payload);
-      }
-    });
 
     // 请求父页面发送数据（页面加载后执行）
     function requestBridgeData() {
@@ -2171,9 +2167,8 @@
       elements.progress.style.width = "100%";
       if (!("speechSynthesis" in window)) {
         elements.audioLabel.textContent = "当前浏览器不支持内置发音";
-        elements.waiting.classList.remove("hidden");
-        elements.start.disabled = true;
-        elements.start.textContent = "发音不可用";
+        elements.waiting.classList.add("hidden");
+        updateStartButton();
         return;
       }
       if (token !== preloadGeneration) return;
@@ -2181,11 +2176,12 @@
         ? "✅ 浏览器发音已就绪（" + uniqueWords.length + " 个词，点击翻牌即发音）"
         : "没有需要发音的单词";
       elements.waiting.classList.add("hidden");
-      elements.start.disabled = false;
+      updateStartButton();
     }
 
     function startGame() {
-      if (gameActive || elements.start.disabled) return;
+      updateStartButton();
+      if (elements.start.disabled) return;
       gameActive = true;
       startTime = Date.now();
       timerId = setInterval(updateTimer, 250);
