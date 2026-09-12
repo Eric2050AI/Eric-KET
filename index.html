@@ -8845,6 +8845,7 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             const rawLogs = Array.isArray(item.logs) ? item.logs : [];
             const embeddedGroups = reviewGroupsFromLogs(rawLogs);
             return {
+                autoPlaceholder: item.autoPlaceholder === true,
                 name: String(item.name || fallbackName || '默认班级'),
                 students: Array.isArray(item.students) ? item.students.map(reviewNormalizeStudent) : [],
                 groups: (Array.isArray(item.groups) ? item.groups : embeddedGroups).map(reviewNormalizeGroup),
@@ -8852,6 +8853,10 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             };
         }
 
+        function reviewIsEmptyPlaceholder(cls) {
+            return cls && cls.autoPlaceholder === true && cls.name === '默认班级' &&
+                !(cls.students || []).length && !(cls.groups || []).length && !(cls.logs || []).length;
+        }
         function reviewNormalizeAllClasses() {
             const normalized = {};
             if (allClasses && typeof allClasses === 'object' && !Array.isArray(allClasses)) {
@@ -8869,8 +8874,8 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             }
             allClasses = normalized;
             if (!Object.keys(allClasses).length) {
-                const id = 'class_' + Date.now();
-                allClasses[id] = reviewNormalizeClass({ name: '默认班级' });
+                const id = 'class_auto_default';
+                allClasses[id] = reviewNormalizeClass({ name: '默认班级', autoPlaceholder: true });
             }
             if (!currentClassId || !allClasses[currentClassId]) currentClassId = Object.keys(allClasses)[0];
         }
@@ -8880,7 +8885,8 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             reviewSyncMeta[classId] = Object.assign({}, reviewSyncMeta[classId], {
                 dirty: true,
                 localRevision: reviewLocalRevision,
-                localUpdatedAt: Date.now()
+                localUpdatedAt: Date.now(),
+                error: false
             });
             reviewSaveSyncMeta();
         }
@@ -8890,7 +8896,7 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             if (syncTimer) clearTimeout(syncTimer);
             syncTimer = setTimeout(() => {
                 syncTimer = null;
-                syncCurrentClassToCloud(currentClassId, reviewLocalRevision);
+                reviewFlushCloudSave();
             }, 650);
             updateSyncStatus('pending');
         }
@@ -8906,56 +8912,138 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
 
         function saveAllClasses() {
             reviewNormalizeAllClasses();
+            const stored = JSON.parse(localStorage.getItem('englishAllClasses') || '{}');
             reviewLocalRevision++;
+            const changed = Object.keys(allClasses).filter(id => JSON.stringify(stored[id]) !== JSON.stringify(allClasses[id]));
+            // 待上传标记先落盘，避免刷新时把未上传的数据误认为已同步。
+            changed.filter(id => !reviewIsEmptyPlaceholder(allClasses[id])).forEach(reviewMarkLocalChange);
             localStorage.setItem('englishAllClasses', JSON.stringify(allClasses));
             localStorage.setItem('englishCurrentClassId', currentClassId);
-            reviewMarkLocalChange(currentClassId);
-            reviewScheduleCloudSync();
+            if (changed.length) reviewScheduleCloudSync();
             if (typeof renderGroupSummary === 'function') renderGroupSummary();
         }
 
+        let reviewConflictDialogBusy = false;
+        function reviewConflictDialog(title, lines, choose = true) {
+            return new Promise(resolve => {
+                const overlay = document.createElement('div');
+                overlay.className = 'sync-choice-overlay';
+                const panel = document.createElement('section');
+                panel.className = 'sync-choice-panel';
+                panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+                panel.setAttribute('aria-label', title);
+                const heading = document.createElement('h2'); heading.textContent = title;
+                const list = document.createElement('div'); list.className = 'sync-choice-list';
+                lines.forEach(line => { const row = document.createElement('div'); row.textContent = line; list.appendChild(row); });
+                const note = document.createElement('p');
+                note.textContent = choose ? '请选择要保留的整班数据。使用本机会尝试上传；使用云端会替换本机。确认后先下载核对备份。' : '';
+                const actions = document.createElement('div'); actions.className = 'sync-choice-actions';
+                const previous = document.activeElement;
+                const finish = value => { document.removeEventListener('keydown', onKey, true); overlay.remove(); if (previous && previous.isConnected) previous.focus(); resolve(value); };
+                const onKey = event => {
+                    if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); finish(null); }
+                    if (event.key === 'Tab') {
+                        const buttons = Array.from(actions.querySelectorAll('button'));
+                        if (event.shiftKey && document.activeElement === buttons[0]) { event.preventDefault(); buttons.at(-1).focus(); }
+                        else if (!event.shiftKey && document.activeElement === buttons.at(-1)) { event.preventDefault(); buttons[0].focus(); }
+                    }
+                };
+                const options = choose ? [['使用本机数据','本机'],['使用云端数据','云端'],['暂不处理',null]] : [['知道了',null]];
+                options.forEach(([label,value],index) => {
+                    const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+                    button.className = 'sync-choice-button sync-choice-' + index;
+                    button.onclick = () => finish(value); actions.appendChild(button);
+                });
+                panel.append(heading,list,note,actions); overlay.appendChild(panel); document.body.appendChild(overlay);
+                document.addEventListener('keydown',onKey,true); actions.lastChild.focus();
+            });
+        }
+        async function reviewResolveSyncConflict() {
+            if (reviewConflictDialogBusy) return;
+            const ids = Object.keys(allClasses).filter(id => reviewSyncMeta[id]?.conflict);
+            if (!ids.length || !cloudUser || !supabaseClient) return;
+            for (const id of ids) {
+                try {
+                    const revision = reviewLocalRevision;
+                    const result = await supabaseClient.from('class_data').select('*').eq('user_id', cloudUser.id).eq('class_id', id).single();
+                    if (result.error) throw result.error;
+                    const row = result.data;
+                    const remote = reviewNormalizeClass({ name: row.class_name, students: row.students, logs: row.logs, groups: row.groups });
+                    const local = allClasses[id];
+                    const lines = local.students.map(s => {
+                        const other = remote.students.find(r => r.id === s.id);
+                        return s.name + '：本机 ' + s.score + ' / 云端 ' + (other ? other.score : '无此学生');
+                    }).concat(remote.students.filter(s => !local.students.some(l => l.id === s.id)).map(s => s.name + '：本机无此学生 / 云端 ' + s.score));
+                    const choice = await reviewConflictDialog(local.name + ' · 同步数据核对', lines);
+                    if (choice !== '本机' && choice !== '云端') return;
+                    if (revision !== reviewLocalRevision) { await reviewConflictDialog('数据已更新', ['核对期间数据有变化，请重新打开核对。'], false); return; }
+                    downloadBlob(new Blob([JSON.stringify({ exportTime: new Date().toISOString(), allClasses, conflictClassId: id, cloudSnapshot: remote }, null, 2)], {type:'application/json'}), '同步冲突核对备份_' + Date.now() + '.json');
+                    if (choice === '云端') {
+                        allClasses[id] = remote;
+                        localStorage.setItem('englishAllClasses', JSON.stringify(allClasses));
+                    }
+                    reviewLocalRevision++;
+                    reviewSyncMeta[id] = { serverVersion: row.updated_at, dirty: choice === '本机', conflict: false, localRevision: reviewLocalRevision };
+                    reviewSaveSyncMeta();
+                    if (choice === '本机') await syncCurrentClassToCloud(id);
+                    renderGrid(); renderRanking(); renderGroupSummary(); updateClassTitle(); renderClassList();
+                    reviewRefreshSyncStatus();
+                } catch (error) { alert('核对失败，未解除冲突：' + error.message); }
+            }
+        }
+        function reviewSyncConflict(classId, message) {
+            reviewSyncMeta[classId] = Object.assign({}, reviewSyncMeta[classId], { dirty: true, conflict: true });
+            reviewSaveSyncMeta();
+            updateSyncStatus('error');
+            const badge = document.getElementById('sync-status');
+            if (badge) { badge.innerText = '⚠ 同步冲突，已保留本地'; badge.title = message; badge.onclick = reviewResolveSyncConflict; badge.style.cursor = 'pointer'; }
+            return false;
+        }
+        function reviewRefreshSyncStatus() {
+            const metas = Object.entries(reviewSyncMeta).filter(([id]) => allClasses[id]).map(([, meta]) => meta);
+            if (metas.some(m => m.conflict)) {
+                updateSyncStatus('error');
+                const badge = document.getElementById('sync-status');
+                if (badge) { badge.innerText = '⚠ 同步冲突，点击核对'; badge.onclick = reviewResolveSyncConflict; badge.style.cursor = 'pointer'; }
+            } else updateSyncStatus(metas.some(m => m.error) ? 'error' : metas.some(m => m.dirty) || syncTimer ? 'pending' : 'ok');
+        }
         async function syncCurrentClassToCloud(classId, revision) {
             if (!supabaseClient || !isCloudMode || !cloudUser) return false;
-            const targetClassId = classId || currentClassId;
-            const targetClass = allClasses[targetClassId];
-            if (!targetClass) return false;
-            const targetRevision = Number.isFinite(revision) ? revision : reviewLocalRevision;
-            const snapshot = reviewClone(reviewNormalizeClass(targetClass));
-            const payload = {
-                user_id: cloudUser.id,
-                class_id: targetClassId,
-                class_name: snapshot.name,
-                students: snapshot.students,
-                logs: reviewPackGroupsIntoLogs(snapshot.groups, snapshot.logs),
-                updated_at: new Date().toISOString()
-            };
+            const id = classId || currentClassId;
+            const owner = cloudUser.id;
             const run = async () => {
+                const meta = reviewSyncMeta[id];
+                if (!allClasses[id] || reviewIsEmptyPlaceholder(allClasses[id]) || !meta || !meta.dirty) { reviewRefreshSyncStatus(); return true; }
+                if (meta.conflict) { reviewRefreshSyncStatus(); return false; }
+                const localRevision = meta.localRevision;
+                const snapshot = reviewClone(reviewNormalizeClass(allClasses[id]));
                 try {
                     updateSyncStatus('pending');
-                    // 先看云端现有日志，合并后再写回：另一台设备当天记的日志不会被本机覆盖掉。
-                    try {
-                        const existing = await supabaseClient.from('class_data').select('logs')
-                            .eq('user_id', cloudUser.id).eq('class_id', targetClassId).single();
-                        if (existing && existing.data && Array.isArray(existing.data.logs)) {
-                            payload.logs = reviewPackGroupsIntoLogs(snapshot.groups, reviewMergeLogs(payload.logs, reviewVisibleLogs(existing.data.logs)));
-                            const localClass = allClasses[targetClassId];
-                            if (localClass) localClass.logs = reviewVisibleLogs(payload.logs);
-                        }
-                    } catch (mergeErr) { /* 取不到就按本地日志上传 */ }
-                    const result = await supabaseClient.from('class_data').upsert(payload, { onConflict: 'user_id,class_id' });
-                    if (result && result.error) throw result.error;
-                    const meta = reviewSyncMeta[targetClassId];
-                    if (meta && meta.localRevision === targetRevision) {
-                        reviewSyncMeta[targetClassId] = Object.assign({}, meta, {
-                            dirty: false,
-                            serverUpdatedAt: Date.now()
-                        });
-                        reviewSaveSyncMeta();
+                    const existing = await supabaseClient.from('class_data').select('*').eq('user_id', owner).eq('class_id', id).maybeSingle();
+                    if (existing.error) throw existing.error;
+                    const remote = existing.data;
+                    if (remote && (!meta.serverVersion || remote.updated_at !== meta.serverVersion)) {
+                        return reviewSyncConflict(id, '云端已被其他页面修改，请先导出本地备份，再核对云端数据。');
                     }
-                    if (targetRevision === reviewLocalRevision && !syncTimer) updateSyncStatus('ok');
+                    const payload = { user_id: owner, class_id: id, class_name: snapshot.name, students: snapshot.students,
+                        logs: reviewPackGroupsIntoLogs(snapshot.groups, reviewMergeLogs(snapshot.logs, reviewVisibleLogs(remote && remote.logs))),
+                        updated_at: new Date(Math.max(Date.now(), remote ? Date.parse(remote.updated_at) + 1 : 0)).toISOString() };
+                    // 数据库条件更新：读取后即使另一台设备抢先写入，也不会覆盖它。
+                    const result = remote
+                        ? await supabaseClient.from('class_data').update(payload).eq('user_id', owner).eq('class_id', id).eq('updated_at', remote.updated_at).select('updated_at')
+                        : await supabaseClient.from('class_data').insert(payload).select('updated_at');
+                    if (result.error) throw result.error;
+                    if (!result.data || result.data.length !== 1) return reviewSyncConflict(id, '其他页面刚刚更新了本班，已停止覆盖。');
+                    const latest = reviewSyncMeta[id];
+                    reviewSyncMeta[id] = Object.assign({}, latest, { serverVersion: result.data[0].updated_at,
+                        dirty: !latest || latest.localRevision !== localRevision, conflict: false, error: false });
+                    reviewSaveSyncMeta();
+                    reviewRefreshSyncStatus();
                     return true;
-                } catch (e) {
-                    console.warn('Class cloud sync failed:', e);
+                } catch (error) {
+                    console.warn('Class cloud sync failed:', error);
+                    reviewSyncMeta[id] = Object.assign({}, reviewSyncMeta[id], { dirty: true, error: true });
+                    reviewSaveSyncMeta();
                     updateSyncStatus('error');
                     return false;
                 }
@@ -8963,10 +9051,12 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             reviewSyncChain = reviewSyncChain.catch(() => false).then(run);
             return reviewSyncChain;
         }
-
         async function reviewFlushCloudSave() {
             if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
-            return syncCurrentClassToCloud(currentClassId, reviewLocalRevision);
+            const ids = Object.keys(allClasses).filter(id => reviewSyncMeta[id] && reviewSyncMeta[id].dirty);
+            const results = await Promise.all(ids.map(id => syncCurrentClassToCloud(id)));
+            if (results.every(Boolean)) reviewRefreshSyncStatus();
+            return results.every(Boolean);
         }
 
         async function attendanceLoadCloud() {
@@ -9076,6 +9166,21 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
                         groups: row.groups,
                         logs: row.logs
                     }, row.class_name);
+                    // 每次下载覆盖本地之前保留副本；升级首次遇到不同数据时不猜哪边正确。
+                    const local = localClasses[row.class_id];
+                    const sameStudents = !local || JSON.stringify(local.students) === JSON.stringify(cloudSide.students);
+                    const decreasedOrMissing = local && local.students.some(student => {
+                        const remoteStudent = cloudSide.students.find(s => s.id === student.id);
+                        return !remoteStudent || Number(remoteStudent.score) < Number(student.score);
+                    });
+                    const uncertain = local && !sameStudents && (!meta || !meta.serverVersion || decreasedOrMissing);
+                    const changedRemote = meta && meta.dirty && meta.serverVersion !== row.updated_at;
+                    if (uncertain || changedRemote || (meta && meta.conflict)) {
+                        merged[row.class_id] = local || cloudSide;
+                        reviewSyncMeta[row.class_id] = Object.assign({}, meta, { dirty: true, conflict: true });
+                        return;
+                    }
+                    reviewSyncMeta[row.class_id] = Object.assign({}, meta, { serverVersion: row.updated_at, conflict: false });
                     if (meta && meta.dirty && localClasses[row.class_id]) {
                         // 本地有未同步修改：以本地为准，但日志取两边并集，
                         // 并补回只存在于云端的学生，避免另一台设备当天的课堂记录被覆盖。
@@ -9093,6 +9198,7 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
                     }
                 });
                 Object.keys(localClasses).forEach(id => {
+                    if (reviewIsEmptyPlaceholder(localClasses[id]) && Object.keys(merged).some(other => other !== id)) { delete reviewSyncMeta[id]; return; }
                     const meta = reviewSyncMeta[id];
                     if (!merged[id] && !deletedClassIds.includes(id)) {
                         // 云端暂无该班级时保留本地数据，并标记为待同步，避免首次登录/换设备时丢班级。
@@ -9112,9 +9218,9 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
                 reviewSaveSyncMeta();
                 localStorage.setItem('englishAllClasses', JSON.stringify(allClasses));
                 localStorage.setItem('englishCurrentClassId', currentClassId);
-                updateSyncStatus('ok');
+                reviewRefreshSyncStatus();
                 if (!foundVocabulary && (readLocalVocabulary('dictation') || readLocalVocabulary('matchgame') || readLocalVocabulary('ketverb'))) syncVocabularyToCloud();
-                if (reviewSyncMeta[currentClassId]?.dirty) reviewScheduleCloudSync();
+                if (Object.keys(allClasses).some(id => reviewSyncMeta[id]?.dirty && !reviewSyncMeta[id]?.conflict)) reviewScheduleCloudSync();
                 return true;
             } catch (e) {
                 console.warn('Class cloud load failed:', e);
@@ -9391,7 +9497,7 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
             const previousClassId = currentClassId;
             if (isCloudMode) {
                 if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
-                syncCurrentClassToCloud(previousClassId, reviewLocalRevision);
+                reviewFlushCloudSave();
             }
             currentClassId = id;
             historyStack = [];
@@ -9417,13 +9523,10 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
         function showAppUI() {
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
-            loadDeletedClassIds(); migrateLegacyVocabulary(); reviewLoadDeletedLogs(); reviewLoadSyncMeta(); updateUserBadge(); updateSyncStatus('ok');
+            loadDeletedClassIds(); migrateLegacyVocabulary(); reviewLoadDeletedLogs(); reviewLoadSyncMeta(); updateUserBadge(); updateSyncStatus(isCloudMode ? 'pending' : 'ok');
             loadAllClassesFromStorage(); initEmojis(); renderPinnedGames(); renderGrid(); renderRanking(); renderGroupSummary(); updateClassTitle(); startClock();
             if (isCloudMode) loadCloudData().then(() => {
-                Object.keys(allClasses).forEach(id => {
-                    reviewMarkLocalChange(id);
-                    if (isCloudMode) syncCurrentClassToCloud(id, reviewLocalRevision);
-                });
+
                 renderGrid(); renderRanking(); renderGroupSummary(); updateClassTitle(); renderClassList();
                 const quantityFrame = document.getElementById('quantity-iframe');
                 if (quantityFrame && quantityFrame.contentWindow) {
@@ -9771,6 +9874,16 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
         .group-management-header{display:flex;align-items:center;justify-content:space-between;gap:8px}.group-management-heading{display:flex;align-items:center;gap:6px;min-width:0}.group-management-heading strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.group-member-count{font-size:12px;color:var(--text-light);white-space:nowrap}.group-management-actions{display:flex;gap:5px}.group-management-actions button{padding:4px 8px;font-size:12px;box-shadow:none}
         .group-member-chips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}.group-member-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;background:#fff;font-size:12px}.group-member-chip button{width:18px;height:18px;padding:0;border-radius:50%;background:var(--btn-red);font-size:13px;line-height:18px;box-shadow:none}.group-no-members,.group-management-empty{color:#aaa;font-size:12px}.group-add-student-select{width:100%;padding:7px 8px;border:1px solid #e5e5e5;border-radius:8px;background:#fff;font:inherit;font-size:13px}.group-unassigned{padding:9px 11px;border:1px dashed #ddd;border-radius:10px;color:var(--text-light);font-size:12px;line-height:1.6}.group-unassigned strong{color:var(--text-main)}
         .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);display:none;justify-content:center;align-items:center;z-index:100}
+
+        .sync-choice-overlay{position:fixed;inset:0;z-index:30000;background:rgba(45,40,55,.48);display:flex;align-items:center;justify-content:center;padding:20px}
+        .sync-choice-panel{background:var(--bg-color,#fffaf0);color:var(--text-color,#333);border-radius:24px;padding:28px;width:min(880px,100%);max-height:90vh;overflow:auto;box-shadow:0 16px 60px #0003;box-sizing:border-box}
+        .sync-choice-panel h2{font-size:28px;margin:0 0 20px}
+        .sync-choice-list{max-height:45vh;overflow:auto;background:#fff;border-radius:16px;padding:12px 20px;font-size:22px;line-height:1.8}
+        .sync-choice-list>div{padding:8px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}
+        .sync-choice-panel p{font-size:17px;line-height:1.6}
+        .sync-choice-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:20px}
+        .sync-choice-button{flex:1;min-width:180px;min-height:68px;border:0;border-radius:16px;font-size:22px;font-weight:bold;color:#333;cursor:pointer;padding:14px;background:#e7e7ed}
+        .sync-choice-0{background:#c9e7bc}.sync-choice-1{background:#bce7ec}.sync-choice-button:focus-visible{outline:3px solid #594caf;outline-offset:3px}
         .modal-overlay.show{display:flex}
         .modal-content{background:var(--card-bg);border-radius:20px;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,0.22);animation:popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275);max-height:90vh;display:flex;flex-direction:column;overflow-y:auto}
         @keyframes popIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
