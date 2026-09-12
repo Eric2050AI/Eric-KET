@@ -788,6 +788,8 @@
         function planScoreRestore(data, classes, selectedId) {
             const changes = [];
             let skipped = 0, unmatched = 0;
+            const issues = [];
+            const issue = message => { unmatched++; issues.push(message); };
             const score = value => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) && Number.isFinite(Number(value)) ? Number(value) : null;
             let sources;
             if (data && data.allClasses && typeof data.allClasses === 'object' && !Array.isArray(data.allClasses) && Object.keys(data.allClasses).length) {
@@ -801,16 +803,40 @@
                 if (!target || !Array.isArray(target.students)) { unmatched += source.students.length; return; }
                 const seen = new Set();
                 source.students.forEach(saved => {
-                    const matches = saved && saved.id ? target.students.filter(s => s && s.id === saved.id) : [];
-                    if (matches.length !== 1 || seen.has(saved.id)) { unmatched++; return; }
+                    if (!saved || typeof saved.id !== 'string' || !saved.id || typeof saved.name !== 'string' || !saved.name.trim() || score(saved.score) === null) {
+                        issue((target.name || classId) + '：学生资料或积分无效'); return;
+                    }
+                    if (source.students.filter(s => s && s.id === saved.id).length !== 1 || seen.has(saved.id)) {
+                        issue(target.name + ' · ' + saved.name + '：备份中学生编号重复'); return;
+                    }
                     seen.add(saved.id);
+                    let matches = target.students.filter(s => s && s.id === saved.id);
+                    if (!matches.length) {
+                        const sameName = target.students.filter(s => s && String(s.name).trim() === saved.name.trim());
+                        const backupNames = source.students.filter(s => s && typeof s.name === 'string' && s.name.trim() === saved.name.trim());
+                        if (sameName.length && (sameName.length !== 1 || backupNames.length !== 1)) {
+                            issue(target.name + ' · ' + saved.name + '：同名学生无法唯一匹配'); return;
+                        }
+                        matches = sameName;
+                    }
+                    if (!matches.length) {
+                        // 已转班的学生不能作为缺失学生重新添加。
+                        if (Object.entries(classes).some(([id, cls]) => id !== classId && Array.isArray(cls.students) && cls.students.some(s => s && s.id === saved.id))) {
+                            issue(target.name + ' · ' + saved.name + '：该学生已在其他班级'); return;
+                        }
+                        changes.push({ classId, studentId: saved.id, name: saved.name, className: target.name, before: 0, after: score(saved.score), addStudent: JSON.parse(JSON.stringify(saved)) });
+                        return;
+                    }
+                    if (matches.length !== 1 || changes.some(c => c.classId === classId && c.studentId === matches[0].id)) {
+                        issue(target.name + ' · ' + saved.name + '：匹配重复'); return;
+                    }
                     const student = matches[0], before = score(student.score), after = score(saved.score);
-                    if (before === null || after === null) { unmatched++; return; }
+                    if (before === null) { issue(target.name + ' · ' + saved.name + '：当前积分无效'); return; }
                     if (after > before) changes.push({ classId, studentId: student.id, name: student.name, className: target.name, before, after });
                     else skipped++;
                 });
             });
-            return { changes, skipped, unmatched };
+            return { changes, skipped, unmatched, issues };
         }
         function importBackup(ev) {
             const file = ev.target.files[0];
@@ -821,11 +847,11 @@
                     const data = JSON.parse(e.target.result);
                     const plan = planScoreRestore(data, allClasses, currentClassId);
                     if (!plan.changes.length) {
-                        alert('无需恢复：没有找到备份积分高于当前积分的学生。\n相同或更高：' + plan.skipped + ' 人；无法匹配或数据异常：' + plan.unmatched + ' 条。');
+                        alert('无需恢复：没有缺失学生或需要补高的积分。\n相同或更高：' + plan.skipped + ' 人；无法匹配或数据异常：' + plan.unmatched + ' 条。\n' + plan.issues.join('\n'));
                         return;
                     }
-                    const details = plan.changes.map(c => c.className + ' · ' + c.name + '：' + c.before + ' → ' + c.after).join('\n');
-                    if (!confirm('仅恢复较高积分，共 ' + plan.changes.length + ' 人：\n\n' + details + '\n\n保留现有积分：' + plan.skipped + ' 人；无法匹配或数据异常：' + plan.unmatched + ' 条（跳过）。\n只更新这些学生的个人积分并新增恢复日志，现有日志、其他资料、词汇和签到保持不变。\n确定恢复吗？')) return;
+                    const details = plan.changes.map(c => c.className + ' · ' + c.name + (c.addStudent ? '（补回学生）' : '') + '：' + c.before + ' → ' + c.after).join('\n');
+                    if (!confirm('补回缺失学生或恢复较高积分，共 ' + plan.changes.length + ' 人：\n\n' + details + '\n\n保留现有积分：' + plan.skipped + ' 人；无法匹配或数据异常：' + plan.unmatched + ' 条（跳过）。\n' + plan.issues.join('\n') + '\n补回缺失学生，已有学生仅补高个人积分，并新增恢复日志，现有日志、其他资料、词汇和签到保持不变。\n确定恢复吗？')) return;
                     // 保留恢复前快照，以便导入操作也能撤销。
                     historyStack.push({ allClasses: JSON.parse(JSON.stringify(allClasses)), currentClassId });
                     if (historyStack.length > 50) historyStack.shift();
@@ -835,7 +861,12 @@
                     const changedIds = new Set();
                     plan.changes.forEach(change => {
                         const cls = allClasses[change.classId];
-                        const student = cls.students.find(s => s.id === change.studentId);
+                        let student = cls.students.find(s => s.id === change.studentId);
+                        if (change.addStudent) {
+                            student = JSON.parse(JSON.stringify(change.addStudent));
+                            if (!Array.isArray(cls.groups) || !cls.groups.some(g => g.id === student.groupId)) student.groupId = '';
+                            cls.students.push(student);
+                        }
                         student.score = change.after;
                         if (!Array.isArray(cls.logs)) cls.logs = [];
                         cls.logs.unshift({ date, time, name: student.name, studentId: student.id, category: '备份积分恢复', delta: change.after - change.before, scoreAfter: change.after });
@@ -847,7 +878,7 @@
                         if (isCloudMode) syncCurrentClassToCloud(id, reviewLocalRevision);
                     });
                     renderClassList();
-                    alert('✅ 已恢复 ' + plan.changes.length + ' 名学生的较高积分。其余数据已保留。');
+                    alert('✅ 已恢复 ' + plan.changes.length + ' 名学生（补回缺失学生或补高积分）。其余数据已保留。');
                 } catch (error) {
                     console.error(error);
                     alert('恢复失败：' + error.message);
