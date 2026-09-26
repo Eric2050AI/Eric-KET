@@ -9694,7 +9694,13 @@ renderSelectors();loadProfile();renderMap();requestBridgeData();setTimeout(reque
   function play(word,origName,origArgs){var k=key(word);if(!k){fallback(word,origName,origArgs);return}var it=item(word);stop();if(it.blobUrl&&it.audio.src!==it.blobUrl){it.audio.src=it.blobUrl;it.audio.load()}var settled=false;var timer=setTimeout(function(){finish(false)},2500);function finish(ok){if(settled)return;settled=true;clearTimeout(timer);if(!ok){try{it.audio.pause()}catch(e){}fallback(word,origName,origArgs)}}it.audio.onplaying=function(){finish(true)};it.audio.onerror=function(){finish(false)};try{var p=it.audio.play();if(p&&p.catch)p.catch(function(){finish(false)})}catch(e){finish(false)}if(!it.blobUrl)prepare(word)['catch'](function(){})}
   var _orig={playAudio:window.playAudio,playCurrentAudio:window.playCurrentAudio,playMatchWordAudio:window.playMatchWordAudio,queueWordAudio:window.queueWordAudio};
   window.__classroomAudioBridge={prime:prime,play:play,stop:stop};
-  window.preloadAudio=function(items){return prime((items||[]).map(function(x){return x&&x.audioText||x&&x.word||x}))};
+  // 保留游戏自身的就绪状态更新；网络音频缓存只能在后台运行，不能锁住开始按钮。
+  var originalPreloadAudio=window.preloadAudio;
+  window.preloadAudio=function(items){
+    var ready=typeof originalPreloadAudio==='function'?originalPreloadAudio.apply(this,arguments):undefined;
+    var caching=prime((items||[]).map(function(x){return x&&x.audioText||x&&x.word||x}))['catch'](function(){return {total:0,ready:0}});
+    return typeof originalPreloadAudio==='function'?ready:caching;
+  };
   window.preloadWordAudios=function(items){return prime(items)};
   window.preloadRoundAudio=function(items){return prime(items)};
   window.preloadMatchWordAudios=function(items){return prime(items)};
